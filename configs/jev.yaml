@@ -1,0 +1,158 @@
+# Phase 4: everything Jev will ever be shown. Version v1, fixed 2026-09-20 BEFORE any
+# dataset-derived call. This file is the prompt. It is hashed into every cached response.
+#
+# It must NOT be edited to improve results. A change is a NEW prompt version (v2, in a
+# new file), run alongside v1, and reported alongside it. There is no held-out set to
+# tune on: with 103 trials, iterating the wording against GRS would just fit it to the
+# labels.
+#
+# DISCLOSURE: this wording was written AFTER the Phase 2 boxplots and the Phase 3
+# results had been seen. It was written from the standard OSATS idea of each element
+# and general surgical-skill language, and deliberately does not encode any specific
+# Phase 2 or 3 finding, but contamination of that kind cannot be ruled out.
+
+prompt_version: v1
+model: jev-1.13.0            # pinned; jev-latest is only an alias of this
+repeats: 3                   # each trial is scored this many times (repeatability check)
+primary_run: 0               # the analysis uses the FIRST run; the others are the check
+
+retry:                       # the SDK retries 429/529/connection errors with backoff
+  max_retries: 5
+  backoff_initial: 1.0
+  backoff_max: 30.0
+
+# ---- The state -------------------------------------------------------------------
+# Words only, computed in code. Jev is documented as unable to count or judge whether
+# numbers are close, so no number is ever sent. Each measure is described relative to
+# the other trials of the SAME task (label-free; the trial itself is in that reference
+# set). No trial name, surgeon, repetition, skill label or score is ever included.
+
+situation: >-
+  One attempt at a bench-top surgical training task performed with a surgical robot.
+  Each measure below is described relative to other attempts at the same task by
+  surgeons with a range of experience.
+
+task_words:
+  Suturing: suturing
+  Knot_Tying: knot-tying
+  Needle_Passing: needle-passing
+
+# (upper bound of the percentile, phrase). A trial's percentile within its task is the
+# share of the task's trials below it, counting ties as half.
+percentile_bands:
+  - [0.10, "among the lowest of comparable attempts"]
+  - [0.30, "lower than most comparable attempts"]
+  - [0.70, "typical of comparable attempts"]
+  - [0.90, "higher than most comparable attempts"]
+  - [1.01, "among the highest of comparable attempts"]
+
+# label shown to Jev -> column in results/features.csv. PSM1 / PSM2 are the dataset
+# readme's "slave left" / "slave right" instruments.
+state_fields:
+  total_time_to_complete: task_time_s
+  left_instrument:
+    distance_travelled: PSM1_path_length
+    average_speed: PSM1_speed_mean
+    variation_in_speed: PSM1_speed_std
+    abruptness_of_movement: PSM1_accel_mean
+    share_of_time_nearly_stationary: PSM1_idle_fraction
+    size_of_space_covered: PSM1_working_volume
+    how_often_gripper_opened_and_closed: PSM1_gripper_cycles
+  right_instrument:
+    distance_travelled: PSM2_path_length
+    average_speed: PSM2_speed_mean
+    variation_in_speed: PSM2_speed_std
+    abruptness_of_movement: PSM2_accel_mean
+    share_of_time_nearly_stationary: PSM2_idle_fraction
+    size_of_space_covered: PSM2_working_volume
+    how_often_gripper_opened_and_closed: PSM2_gripper_cycles
+  how_closely_the_two_instruments_speeds_rise_and_fall_together: bimanual_speed_corr
+
+# ---- The questions ---------------------------------------------------------------
+# Seven Score questions, five levels each (levels 0-4, matching 1-5 on the OSATS
+# scale), one dimension per question, levels described as SITUATIONS not degrees, all
+# sent in one request per trial. The six element questions follow the dataset readme's
+# order: Respect for tissue, Suture/needle handling, Time and motion, Flow of
+# operation, Overall performance, Quality of final product. That order is taken on the
+# readme's word (see docs/NOTES.md), so element-level comparisons are exploratory.
+# The state is motion only, so tissue damage and the finished product are not visible
+# to Jev; those two questions are expected to be weak and are kept for completeness.
+
+questions:
+  overall_skill:
+    instructions: >-
+      Judging only from this motion summary, what is the surgeon's overall standard of
+      performance in this attempt, taking tissue handling, needle handling, economy of
+      movement, flow and the likely result together?
+    criteria:
+      - "Motion looks unsure and inefficient throughout: the attempt takes very long, the instruments wander or sit still a lot, and the two hands work poorly together."
+      - "Motion is often hesitant or wasteful, with long pauses or extra movement, and the hands are only loosely coordinated."
+      - "Motion is adequate: some hesitation or wasted movement, some coordination between the hands, and a completion time that is about typical."
+      - "Motion is mostly efficient and purposeful, with few pauses, controlled movement and good coordination between the hands."
+      - "Motion is consistently efficient and fluent: quick completion, little wasted movement, few pauses, and smooth, well-coordinated use of both hands."
+
+  respect_for_tissue:
+    instructions: >-
+      Judging only from this motion summary, how gently and carefully does the surgeon
+      handle tissue?
+    criteria:
+      - "Movement is often abrupt and forceful, with sudden jerks and frequent large, uncontrolled swings of the instruments."
+      - "Movement is frequently abrupt or heavy-handed, with occasional uncontrolled swings."
+      - "Movement is mostly controlled, with some abruptness at times."
+      - "Movement is controlled and gentle for the most part, with few abrupt changes."
+      - "Movement is consistently gentle and precisely controlled, with smooth, deliberate changes of speed and direction."
+
+  suture_needle_handling:
+    instructions: >-
+      Judging only from this motion summary, how skilfully does the surgeon handle the
+      needle and thread?
+    criteria:
+      - "Instrument motion is clumsy and repetitive, with many repeated grasp attempts and constant readjustment."
+      - "There is frequent repeated grasping and readjusting, with some awkward, wasted motion."
+      - "Handling is adequate, with some repeated grasping and readjustment."
+      - "Handling is mostly deft, with few repeated grasps and economical instrument movements."
+      - "Handling is consistently deft and confident, with rare regrasping and purposeful instrument movements."
+
+  time_and_motion:
+    instructions: >-
+      Judging only from this motion summary, how economical are the surgeon's use of
+      time and movement?
+    criteria:
+      - "Many unnecessary movements and long pauses; the instruments wander and retrace their paths, and the attempt takes very long."
+      - "Frequent unnecessary movement and pauses; efficiency is poor but the task moves forward."
+      - "Reasonable efficiency with some wasted movement and occasional pauses."
+      - "Mostly economical movement with few pauses and little retracing."
+      - "Consistently economical, purposeful movement with minimal pauses, finished quickly."
+
+  flow_of_operation:
+    instructions: >-
+      Judging only from this motion summary, how smoothly does the operation flow from
+      one step to the next?
+    criteria:
+      - "The attempt is stop-start: frequent long pauses, hesitation between steps, and progress that repeatedly stalls."
+      - "The attempt is often stop-start, with noticeable pauses and hesitation between steps."
+      - "Flow is uneven: some pauses or hesitation, but steady progress overall."
+      - "Flow is mostly smooth, with few pauses and clear progression through the steps."
+      - "Flow is continuous and confident, with almost no pauses and each step following directly from the last."
+
+  overall_performance:
+    instructions: >-
+      Judging only from this motion summary, and as a single overall impression, how
+      would an experienced surgeon rate this performance of the operation?
+    criteria:
+      - "An experienced surgeon would see a novice: slow, hesitant, wasteful movement with poor control."
+      - "An experienced surgeon would see a beginner still learning: some control, but frequent hesitation and waste."
+      - "An experienced surgeon would see a competent trainee: acceptable control with some inefficiency."
+      - "An experienced surgeon would see a proficient operator: controlled, efficient movement with only minor lapses."
+      - "An experienced surgeon would see an expert: fluent, economical and confident movement throughout."
+
+  quality_of_final_product:
+    instructions: >-
+      The finished result itself is not visible. Judging only from the motion summary,
+      how good is the finished result likely to be?
+    criteria:
+      - "The motion suggests a rushed or careless attempt, making a poor result very likely."
+      - "The motion suggests limited precision, making a below-standard result likely."
+      - "The motion suggests reasonable care, making an acceptable result likely."
+      - "The motion suggests careful, precise work, making a good result likely."
+      - "The motion suggests consistently careful, precise work, making an excellent result likely."

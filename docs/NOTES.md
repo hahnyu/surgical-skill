@@ -998,5 +998,85 @@ Knot-Tying 5.11, Needle-Passing 4.82), so it is modest in absolute terms even wh
 it is credible: 0.23 to 0.33 of a standard deviation for Knot-Tying (1.18 and 1.69
 divided by 5.11), i.e. about a quarter to a third.
 
+## Phase 4 -- Jev: design PRE-DECLARED before any dataset-derived call (2026-09-20)
+
+**API facts, verified from TypeSafe's own docs (docs.typesafe.ai) and the installed SDK,
+not from memory.** `POST https://api.typesafe.ai/v1/systemone`, bearer key; request
+`{state, model, questions}`; a Score question is `{type: "score", instructions,
+criteria}` with 2-10 ordered levels, level numbers from 0; response `{model, answers,
+usage}` with, per Score, `score` (the probability-weighted level, so it can fall between
+levels), `probabilities`, `legend` and `confidence` (0-1, from the shape of the
+distribution). `jev-latest` is an alias of `jev-1.13.0`; the response's `model` field
+reports the versioned id. Limits: 64k tokens per request, 32k for state plus the longest
+question; 1,200 requests/min (adjusting dynamically); about $0.042 per million input
+tokens, output free. Errors: 401 bad key, 422 malformed, 429/529 retry with backoff (the
+SDK does; we set max_retries 5). The docs do NOT specify determinism, state-size limits
+beyond the above, or a fixed retention period. Package: `typesafe-sdk` 0.7.0 (PyPI,
+Python >= 3.10), added 2026-09-20 with the user's approval.
+
+**The model's documented weaknesses drive the design** (docs, "Jev 1.13 jaggedness"): it
+"does not count reliably", cannot reliably judge whether two numbers are near each other,
+its score levels "are weak in numerical calibration" and "will not be able to help you
+reconstruct the exact number by interpolating", and accuracy "falls as the state grows
+with content unrelated to the decision". Hence: no number is ever sent, the state is
+short, and the continuous score is treated as a rank signal, with a weak magnitude
+estimate at best.
+
+**Smoke test:** one made-up sentence and one Score question, model pinned to
+`jev-1.13.0`; the API reported `jev-1.13.0`; score 1.9, confidence 0.86, 320 input
+tokens. Raw response saved as `results/jev_raw/_smoke_test.json`. No project data sent.
+
+**Data terms (read 2026-09-20; for the ethics statement).** Privacy policy: "We will not
+train or fine tune any artificial intelligence or machine learning models on your prompts
+or other Input"; inputs are not disclosed "to a third party other than our service
+providers" (sub-processor list at trust.typesafe.ai, NOT read). **Retention has no fixed
+period** ("as long as reasonably necessary"); the DPA says nothing on deletion on request;
+research use and sensitive data are not addressed. NHSR determination still pending.
+Judgement recorded: what is sent is wording derived from a de-identified public dataset,
+not the dataset (no video, no trajectories, no identifiers, no labels, no numbers).
+
+**Prompt v1, fixed in `configs/jev.yaml` and hashed into every cached response.**
+- State: the task in words, and for each of the 16 features one phrase placing it against
+  the other trials of the SAME task ("typical of comparable attempts", ...). Percentile =
+  share of the task's trials below it, ties counted half; bands cut at 0.10 / 0.30 / 0.70 /
+  0.90 (arbitrary, conventional, declared now). The reference set is label-free but
+  includes the trial itself and other surgeons' trials (transductive, no labels).
+  No trial name, surgeon, repetition, skill label, score or digit; tests enforce this.
+- Questions: 7 Score questions, 5 levels each, one dimension each, situations not
+  degrees, in ONE request per trial: `overall_skill` (primary) and the six OSATS
+  elements in the readme's order. The element order is on the readme's word, so
+  element-level comparisons are EXPLORATORY. Two elements (respect for tissue, quality of
+  final product) concern things motion data cannot show; kept for completeness.
+- Model pinned `jev-1.13.0`; `response.model` checked against it on every fresh AND cached
+  record; each trial scored 3 times (repeatability); raw JSON cached to
+  `results/jev_raw/<trial>__run<k>.json` BEFORE parsing, with the exact state sent; a
+  cached trial is never re-requested. Cost estimate: about 309 requests, cents in total.
+- **No revision.** The wording was written after the Phase 2 and Phase 3 results were
+  seen; it is from general OSATS ideas and encodes no specific finding, but contamination
+  cannot be ruled out. With 103 trials there is no held-out set to tune on, so the wording
+  is not iterated against GRS. A change would be a new version (v2, new file) run alongside
+  and reported alongside.
+
+**Analysis plan, fixed before any score exists:**
+1. Predictor: `overall_skill` score from run 0 (the single-call use a real deployment
+   would have). Sensitivities: mean of the 3 runs; the mean of the six element scores.
+2. **Rank agreement:** Spearman of the score with GRS per task, surgeon-bootstrap interval.
+   Jev is never trained, so its pooled correlation has none of the cross-validation bias
+   that pulls the baseline's LOUO correlation toward -0.8; the two must NOT be compared
+   as raw correlations.
+3. **Common yardstick (the headline):** MAE improvement over the feature-free reference,
+   as for the baseline. Within each training fold, fit an ordinary least-squares line
+   GRS ~ a + b * score on the TRAINING trials only and predict the held-out trials, under
+   LOUO (headline) and LOSO; surgeon bootstrap; same rule (lower end of the 95% interval
+   above zero). Reported side by side with the baseline.
+4. **Direction guard:** the sign of the fitted slope b is reported for every fold. A
+   negative slope means Jev ranks skill backwards; it is reported as that, and is NOT
+   silently corrected by the line (a fitted line would otherwise turn an inverted score
+   into an apparently good predictor).
+5. **Repeatability:** between-run agreement on `overall_skill` (Spearman; mean absolute
+   score difference). Identical answers would be reported as apparent determinism.
+6. Jev's `confidence` and level probabilities are logged for Phase 5.
+7. Element-level agreement with the six OSATS columns: exploratory, order unverified.
+
 Not run: a full-file sensitivity analysis.Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
