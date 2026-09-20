@@ -120,6 +120,7 @@ def calibration_report(proba, truth, subjects, boot: dict, reference_proba) -> d
     ece, mce = netcal_ece_mce(proba, truth)
     brier, ref_brier = multiclass_brier(proba, truth), multiclass_brier(reference, truth)
     out = {"n": len(truth), "accuracy": float((proba.argmax(axis=1) == truth).mean()),
+           "mean_confidence": float(proba.max(axis=1).mean()),
            "ece": ece, "mce": mce, "brier": brier, "brier_reference": ref_brier,
            "brier_skill": 1 - brier / ref_brier}
     stats = {

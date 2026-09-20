@@ -218,3 +218,14 @@ def test_jev_probabilities_and_gpr_predictions_are_scheme_specific_only_where_th
     assert (a["jev_conf"] == b["jev_conf"]).all()
     assert not np.allclose(a["base_conf"], b["base_conf"])                                        # the classifier is refit per scheme
     assert not np.allclose(a["jev_pred"], b["jev_pred"])                                          # the calibration line is refit per fold
+
+
+def test_calibration_report_records_mean_stated_confidence():
+    """The paper quotes 'X% confident / Y% correct', so the confidence must be logged
+    beside the accuracy rather than recomputed from prose."""
+    proba = np.array([[0.9, 0.1], [0.7, 0.3], [0.8, 0.2], [0.6, 0.4]])
+    truth = [0, 0, 1, 1]
+    subjects = list("AABB")
+    r = calibration_report(proba, truth, subjects, BOOT, np.tile([0.5, 0.5], (4, 1)))
+    assert r["mean_confidence"] == pytest.approx(0.75)      # mean of 0.9, 0.7, 0.8, 0.6
+    assert r["accuracy"] == pytest.approx(0.5)
