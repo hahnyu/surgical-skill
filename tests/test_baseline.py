@@ -1,0 +1,225 @@
+"""Tests for src/baseline.py.
+
+The leakage tests come first: each one changes something the model must NOT be
+able to see and confirms the predictions do not move. Leakage does not break
+anything visibly; it just makes results look better than they are.
+"""
+
+import numpy as np
+import pandas as pd
+import pytest
+from sklearn.model_selection import LeaveOneGroupOut
+
+import baseline
+from baseline import (
+    CLASS_ORDER,
+    cross_validate,
+    feature_columns,
+    load_config,
+    load_dataset,
+    log_run,
+    make_classifier,
+    make_regressor,
+    permutation_sentinel,
+)
+from loaders import Fold, load_splits
+from metrics import spearman
+
+
+@pytest.fixture(scope="module")
+def cfg():
+    return load_config()
+
+
+@pytest.fixture(scope="module")
+def data(cfg):
+    return load_dataset(cfg["features_file"])
+
+
+def synthetic(data, signal):
+    """Real trial names, subjects and folds, but invented features and labels.
+
+    With signal=True, GRS depends on the first two invented features. With
+    signal=False the invented features are unrelated to GRS.
+    """
+    rng = np.random.default_rng(0)
+    fake = data.copy()
+    columns = feature_columns(data)
+    fake[columns] = rng.normal(size=(len(fake), len(columns)))
+    if signal:
+        fake["grs"] = (15 + 3 * fake[columns[0]] + 2 * fake[columns[1]]
+                       + rng.normal(scale=1.0, size=len(fake)))
+    return fake
+
+
+# --- the data going in --------------------------------------------------------
+
+
+def test_the_model_inputs_are_only_the_16_features_never_a_label_or_identifier(data):
+    columns = feature_columns(data)
+    assert len(columns) == 16
+    for forbidden in ("task", "subject", "skill", "grs", "repetition"):
+        assert forbidden not in columns
+
+
+def test_the_dataset_has_103_labelled_trials(data):
+    assert len(data) == 103
+    assert data["task"].value_counts().to_dict() == {"Suturing": 39, "Knot_Tying": 36, "Needle_Passing": 28}
+
+
+# --- leakage -----------------------------------------------------------------
+
+
+def test_test_fold_labels_cannot_change_that_folds_predictions(data, cfg):
+    """Replace the labels of the trials being tested with nonsense: predictions for
+    that fold must be identical, because a model never sees its own test labels."""
+    first_test = load_splits("Suturing", "LOSO")[0].test
+    scrambled = data.copy()
+    scrambled.loc[first_test, "grs"] = 999.0
+    before = cross_validate("Suturing", "LOSO", "regression", data, cfg)
+    after = cross_validate("Suturing", "LOSO", "regression", scrambled, cfg)
+    assert np.array_equal(before.loc[first_test, "y_pred"], after.loc[first_test, "y_pred"])
+
+
+def test_test_fold_features_cannot_change_other_test_rows_predictions(data, cfg):
+    """If the scaler were fit on the test rows, altering some test rows would
+    shift the scaling and so change the predictions for the untouched ones."""
+    first_test = load_splits("Suturing", "LOSO")[0].test
+    changed, untouched = first_test[: len(first_test) // 2], first_test[len(first_test) // 2:]
+    altered = data.copy()
+    altered.loc[changed, feature_columns(data)] = altered.loc[changed, feature_columns(data)] * 50 + 7
+    before = cross_validate("Suturing", "LOSO", "regression", data, cfg)
+    after = cross_validate("Suturing", "LOSO", "regression", altered, cfg)
+    assert np.array_equal(before.loc[untouched, "y_pred"], after.loc[untouched, "y_pred"])
+
+
+def test_the_scaler_learns_its_mean_from_the_training_rows_only(data, cfg):
+    columns = feature_columns(data)
+    fold = load_splits("Suturing", "LOUO")[0]
+    train = data.loc[fold.train]
+    model = make_regressor(cfg["regression"])
+    model.fit(train[columns], train["grs"], groups=train["subject"])
+    scaler = model.best_estimator_.named_steps["scale"]
+    assert np.allclose(scaler.mean_, train[columns].mean().to_numpy())
+    # And it is NOT the mean of everything (which would include the test trials).
+    assert not np.allclose(scaler.mean_, data[data["task"] == "Suturing"][columns].mean().to_numpy())
+
+
+def test_alpha_is_chosen_by_leave_one_subject_out_inside_the_training_set(data, cfg):
+    model = make_regressor(cfg["regression"])
+    assert isinstance(model.cv, LeaveOneGroupOut)
+    columns = feature_columns(data)
+    fold = load_splits("Suturing", "LOSO")[0]
+    train = data.loc[fold.train]
+    with pytest.raises(ValueError):                 # refuses to run without surgeon groups
+        make_regressor(cfg["regression"]).fit(train[columns], train["grs"])
+
+
+def test_the_classifier_scaler_is_inside_the_pipeline(cfg):
+    model = make_classifier(cfg["classification"])
+    assert list(model.named_steps) == ["scale", "model"]
+    assert model.named_steps["model"].C == 1.0
+
+
+def test_shuffled_labels_give_a_spearman_near_zero_on_invented_features(data, cfg):
+    """The sentinel, exercised on data where there is provably nothing to find."""
+    fake = synthetic(data, signal=False)
+    small = {**cfg, "permutation_sentinel": {"n_permutations": 10, "max_abs_mean_rho": 0.15}}
+    result = permutation_sentinel("Suturing", "LOUO", fake, small)
+    assert result["passed"], result
+    assert abs(result["mean_rho"]) < 0.15
+
+
+# --- the pipeline can learn, and predicts each trial exactly once ---------------
+
+
+def test_it_recovers_a_real_signal_under_leave_one_surgeon_out(data, cfg):
+    fake = synthetic(data, signal=True)
+    oof = cross_validate("Suturing", "LOUO", "regression", fake, cfg)
+    assert spearman(oof["y_true"], oof["y_pred"]) > 0.8
+
+
+@pytest.mark.parametrize("task, n", [("Suturing", 39), ("Knot_Tying", 36), ("Needle_Passing", 28)])
+@pytest.mark.parametrize("scheme", ["LOSO", "LOUO"])
+def test_every_trial_is_predicted_exactly_once(data, cfg, task, n, scheme):
+    oof = cross_validate(task, scheme, "regression", data, cfg)
+    assert len(oof) == n
+    assert oof.index.is_unique
+    assert set(oof.index) == set(data[data["task"] == task].index)
+    assert (oof["subject"] == data.loc[oof.index, "subject"]).all()
+    assert (oof["y_true"] == data.loc[oof.index, "grs"]).all()
+
+
+def test_louo_never_trains_on_the_held_out_surgeon(data):
+    for fold in load_splits("Suturing", "LOUO"):
+        held_out = {t.split("_")[-1][0] for t in fold.test}
+        in_training = {t.split("_")[-1][0] for t in fold.train}
+        assert not held_out & in_training
+
+
+def test_the_result_is_deterministic(data, cfg):
+    a = cross_validate("Knot_Tying", "LOUO", "regression", data, cfg)
+    b = cross_validate("Knot_Tying", "LOUO", "regression", data, cfg)
+    assert a.equals(b)
+
+
+def test_ridge_picks_alpha_from_the_declared_grid(data, cfg):
+    oof = cross_validate("Suturing", "LOSO", "regression", data, cfg)
+    assert set(oof["alpha"]) <= set(cfg["regression"]["alpha_grid"])
+
+
+# --- classification ---------------------------------------------------------------
+
+
+def test_class_probabilities_sum_to_one_and_match_the_prediction(data, cfg):
+    oof = cross_validate("Suturing", "LOSO", "classification", data, cfg)
+    proba = oof[[f"proba_{c}" for c in CLASS_ORDER]]
+    assert np.allclose(proba.sum(axis=1), 1.0)
+    assert ((proba >= 0) & (proba <= 1)).all().all()
+    predicted = proba.idxmax(axis=1).str.replace("proba_", "")
+    assert (predicted == oof["y_pred"]).all()
+
+
+def test_a_class_missing_from_training_gets_probability_zero(data, cfg, monkeypatch):
+    """Each of three folds trains without one class. The missing class must show up
+    as a column of zeros, not as a missing column or an error."""
+    sub = data[data["task"] == "Suturing"]
+    by_class = {c: list(sub.index[sub["skill"] == c]) for c in CLASS_ORDER}
+    folds = []
+    for missing in CLASS_ORDER:
+        train = [t for c in CLASS_ORDER if c != missing for t in by_class[c]]
+        folds.append(Fold(name=f"no_{missing}", train=train, test=by_class[missing]))
+    monkeypatch.setattr(baseline, "load_splits", lambda task, scheme: folds)
+
+    oof = cross_validate("Suturing", "LOSO", "classification", data, cfg)
+    for missing in CLASS_ORDER:
+        rows = oof[oof["fold"] == f"no_{missing}"]
+        assert (rows[f"proba_{missing}"] == 0).all()
+        assert np.allclose(rows[[f"proba_{c}" for c in CLASS_ORDER]].sum(axis=1), 1.0)
+
+
+def test_bad_kind_is_rejected(data, cfg):
+    with pytest.raises(ValueError):
+        cross_validate("Suturing", "LOSO", "ranking", data, cfg)
+
+
+# --- the experiments log -------------------------------------------------------------
+
+
+def test_log_run_creates_the_file_then_appends(tmp_path):
+    path = tmp_path / "experiments.csv"
+    log_run({"task": "Suturing", "spearman": 0.5}, path)
+    log_run({"task": "Knot_Tying", "spearman": 0.4}, path)
+    log = pd.read_csv(path)
+    assert list(log["task"]) == ["Suturing", "Knot_Tying"]
+    assert list(log["spearman"]) == [0.5, 0.4]
+
+
+def test_log_run_accepts_a_new_column_without_losing_old_rows(tmp_path):
+    path = tmp_path / "experiments.csv"
+    log_run({"task": "Suturing", "spearman": 0.5}, path)
+    log_run({"task": "Suturing", "accuracy": 0.7}, path)
+    log = pd.read_csv(path)
+    assert len(log) == 2
+    assert log.loc[0, "spearman"] == 0.5 and pd.isna(log.loc[0, "accuracy"])
+    assert log.loc[1, "accuracy"] == 0.7 and pd.isna(log.loc[1, "spearman"])
