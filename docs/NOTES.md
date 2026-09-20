@@ -653,5 +653,67 @@ PLAN.md's "at least three features that visibly separate skill levels": no
 numeric cutoff was set in advance and none is invented here. The judgment is
 left to the user, with the figures and this table as the evidence.
 
+## Phase 3 -- baseline: design PRE-DECLARED before any model runs (2026-09-20)
+
+Fixed in `configs/baseline.yaml` and committed ahead of the code. As in Phase 2,
+nothing here may change after results are seen; a change is a new logged decision
+under a new config file.
+
+**Inputs and scope.** All 16 features from `results/features.csv` (5 Hz smoothed),
+no feature selection. One model per task; nothing pooled across tasks. LOSO and
+LOUO folds from `loaders.load_splits`. Pre-declared robustness runs: the raw and
+8 Hz matrices.
+
+**Leakage safeguards.** The scaler is fit on the training fold only (inside a
+scikit-learn Pipeline); hyperparameters are chosen only inside the training set;
+held-out trials are never seen. Tests check that the fitted model cannot depend
+on test-fold labels. Plus a sentinel: refit 50 times with labels shuffled; the
+mean Spearman must be within +/-0.10 of zero, else suspect a leak. (The 0.10 is
+my judgment, declared now; it is a sanity check, not a result.)
+
+**Regression (GRS).** Ridge on standardized features. Alpha in {0.1, 1, 10, 100},
+chosen by leave-one-SUBJECT-out inside each training set (scoring: negative mean
+squared error). Grouping by subject stops the inner search from rewarding a model
+that recognizes a surgeon's style. This is stricter than LOSO itself, on purpose.
+
+**Classification (N/I/E).** Multinomial logistic regression (scikit-learn, no new
+dependency), L2, **C = 1.0 FIXED, not searched.** Reason: the classes are held by
+few surgeons (2 experts, 2 intermediates, 3-4 novices), so in LOUO the training set
+can have a single expert; a leave-one-subject-out inner search would then hold that
+surgeon out and leave the inner training set with NO experts, making the search
+ill-defined. C = 1.0 is scikit-learn's default and an arbitrary choice; expect it
+to matter. Ignores that N < I < E is ordered (limitation; ordinal model not chosen).
+No class weighting although classes are unbalanced (46 N / 28 I / 29 E).
+This asymmetry with the regression (searched vs fixed) is a consequence of the
+data, not a preference, and the user did not specify the value of C.
+
+**Headline statistic.** ONE Spearman rho per task and scheme, from the pooled
+out-of-fold predictions (every trial predicted once by a model that never saw it),
+plus Kendall tau, MAE and RMSE for context. Not the mean of per-fold correlations:
+a LOUO fold has ~4-5 trials. Classification: accuracy, balanced accuracy,
+quadratic-weighted kappa.
+
+**Uncertainty.** 95% percentile interval from resampling whole surgeons with
+replacement (2000 resamples, seed 0), holding each trial's out-of-fold prediction
+fixed. Limits, stated now: with 7-8 surgeons the interval is crude and will be
+wide; it captures who the evaluation surgeons are, NOT variability from refitting
+on different training sets; resamples where a statistic is undefined (e.g. a
+constant y) are skipped and counted.
+
+**Logging.** One row per run in `results/experiments.csv`: timestamp, config file,
+git commit, feature set, CV scheme, task, model, seed, library versions, metrics.
+Out-of-fold predictions and `predict_proba` saved under `results/predictions/`
+(gitignored: derived from JIGSAWS) for Phase 5.
+
+**Acceptance (PLAN.md).** LOSO Spearman rho on Suturing in the rough
+neighbourhood of 0.5-0.7. Comparison figures in PLAN.md (Zia & Essa, IJCARS 2018:
+~0.61 average, ~0.75 / 0.63 / 0.46 per task under LOSO, ~0.41 under LOUO) are
+carried from PLAN.md and NOT verified by me. TODO(verify) against the paper before
+any comparison goes in the write-up. Their protocol and features differ from ours.
+
+**Known threat.** Skill is confounded with surgeon identity. LOSO leaves the same
+surgeons in training, so a model can score well by recognizing style; the LOSO to
+LOUO gap is the honest measure of that. Report both.
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.

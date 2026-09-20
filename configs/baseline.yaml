@@ -1,0 +1,47 @@
+# Phase 3 baseline: every setting, fixed on 2026-09-20 BEFORE the first model was
+# run. Do not change a value after seeing results; if a change is needed, log it in
+# docs/NOTES.md as a new decision and run under a new config file.
+
+features_file: results/features.csv     # 5 Hz smoothed matrix, 103 x 16
+feature_set: smoothed_5hz
+# Pre-declared robustness runs: the same experiment on the raw and 8 Hz matrices.
+sensitivity_feature_files:
+  raw: results/features_raw.csv
+  smoothed_8hz: results/features_8hz.csv
+
+seed: 0                                  # recorded in every experiments.csv row
+
+# All 16 features, no selection: choosing features using the labels is leakage.
+# One model per task; nothing is pooled across tasks. LOSO and LOUO folds come
+# from loaders.load_splits (verified identical to the official Suturing folds).
+
+regression:
+  target: grs                            # raw GRS, 6-30, no transform
+  model: ridge
+  alpha_grid: [0.1, 1, 10, 100]
+  # Alpha is chosen INSIDE each training set by leave-one-subject-out, so the inner
+  # split keeps each surgeon's trials together and cannot learn surgeon style.
+  inner_cv: leave_one_subject_out
+  inner_scoring: neg_mean_squared_error
+  standardize: true                      # StandardScaler fit on the training fold only
+
+classification:
+  target: skill                          # self-declared N / I / E
+  model: multinomial_logistic
+  C: 1.0                                 # FIXED, not searched: see docs/NOTES.md
+  max_iter: 1000
+  standardize: true
+  class_weight: null                     # classes are unbalanced (46 N / 28 I / 29 E)
+
+# Uncertainty: resample whole SURGEONS (not trials) with replacement, keeping each
+# trial's out-of-fold prediction fixed. No refitting.
+bootstrap:
+  n_resamples: 2000
+  confidence: 0.95
+  seed: 0
+
+# Leakage sentinel: refit under shuffled labels; a leak-free pipeline should give a
+# mean Spearman near zero. Criterion declared now, not after the fact.
+permutation_sentinel:
+  n_permutations: 50
+  max_abs_mean_rho: 0.10

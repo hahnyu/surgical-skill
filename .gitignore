@@ -7,3 +7,4 @@ results/jev_raw/
 results/features*.csv
 results/figures/
 results/feature_grs_spearman.csv
+results/predictions/
