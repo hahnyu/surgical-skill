@@ -316,9 +316,20 @@ def test_feature_free_reference_matches_a_hand_computation(data):
             fold_mean[trial] = mean
     predicted = pd.Series(fold_mean).loc[sub.index]
     expected = spearmanr(sub["grs"], predicted)[0]
-    assert feature_free_reference("Suturing", "LOSO", data) == pytest.approx(expected)
+    assert feature_free_reference("Suturing", "LOSO", data)["spearman"] == pytest.approx(expected)
 
 
 def test_feature_free_reference_ignores_the_features_entirely(data):
     assert feature_free_reference("Suturing", "LOUO", data) == feature_free_reference(
         "Suturing", "LOUO", synthetic(data, signal=False))
+
+
+def test_feature_free_mae_on_a_hand_computation(data):
+    """Suturing LOSO: mean absolute gap between each trial's GRS and the mean GRS of
+    the other folds' trials, worked out directly."""
+    sub = data[data["task"] == "Suturing"]
+    misses = []
+    for fold in load_splits("Suturing", "LOSO"):
+        mean = sub.loc[fold.train, "grs"].mean()
+        misses += [abs(sub.loc[t, "grs"] - mean) for t in fold.test]
+    assert feature_free_reference("Suturing", "LOSO", data)["mae"] == pytest.approx(np.mean(misses))

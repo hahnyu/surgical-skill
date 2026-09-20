@@ -97,19 +97,22 @@ def section_b(cfg, data, primary, common, stamp):
 
 
 def section_c(cfg, data, log, common, stamp):
-    """Each real model's rho next to the feature-free reference on the same labels."""
-    print("\nC) Real-label rho of the models against a feature-free reference (same folds, same labels)")
-    print(f"   {'scheme':5} {'task':15} {'feature-free':>13} {'v1 ridge':>9} {'v2 ridge':>9}")
-    primary_reg = log[(log["kind"] == "regression") & (log["feature_set"] == cfg["feature_set"])]
+    """Each real model next to the feature-free reference, on the same folds and labels."""
+    print("\nC) Models against a feature-free reference (predict the training mean). Same folds, real labels.")
+    print(f"   {'':5} {'':15} | {'Spearman rho':^31} | {'MAE (GRS points)':^31}")
+    print(f"   {'scheme':5} {'task':15} | {'feat-free':>9} {'v1':>9} {'v2':>9}    | {'feat-free':>9} {'v1':>9} {'v2':>9}")
+    reg = log[(log["kind"] == "regression") & (log["feature_set"] == cfg["feature_set"])]
     for scheme in SCHEMES:
         for task in TASKS:
             ref = feature_free_reference(task, scheme, data)
-            pick = lambda config: primary_reg[(primary_reg["config_file"] == config) & (primary_reg["cv_scheme"] == scheme)
-                                              & (primary_reg["task"] == task)].iloc[-1]["spearman"]
-            print(f"   {scheme:5} {task:15} {ref:>+13.3f} {pick('configs/baseline.yaml'):>+9.3f} "
-                  f"{pick('configs/baseline_v2.yaml'):>+9.3f}")
+            pick = lambda config, col: reg[(reg["config_file"] == config) & (reg["cv_scheme"] == scheme)
+                                           & (reg["task"] == task)].iloc[-1][col]
+            v1, v2 = "configs/baseline.yaml", "configs/baseline_v2.yaml"
+            print(f"   {scheme:5} {task:15} | {ref['spearman']:>+9.3f} {pick(v1,'spearman'):>+9.3f} {pick(v2,'spearman'):>+9.3f}    | "
+                  f"{ref['mae']:>9.2f} {pick(v1,'mae'):>9.2f} {pick(v2,'mae'):>9.2f}")
             log_run({"timestamp": stamp(), **common, "cv_scheme": scheme, "task": task,
-                     "kind": "diagnostic_feature_free_reference", "model": "training_mean", "spearman": ref})
+                     "kind": "diagnostic_feature_free_reference", "model": "training_mean",
+                     "spearman": ref["spearman"], "mae": ref["mae"]})
 
 
 if __name__ == "__main__":

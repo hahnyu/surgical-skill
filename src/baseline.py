@@ -29,7 +29,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from loaders import TASKS, load_all_meta, load_splits
-from metrics import classification_report, regression_report, spearman
+from metrics import classification_report, mae, regression_report, spearman
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = PROJECT_ROOT / "configs" / "baseline.yaml"
@@ -165,20 +165,35 @@ def intercept_only_under_shuffles(task: str, scheme: str, data: pd.DataFrame, cf
     return float(np.nanmean(rhos))
 
 
-def feature_free_reference(task: str, scheme: str, data: pd.DataFrame) -> float:
-    """Pooled Spearman of a predictor that ignores the features, on the REAL labels.
+def feature_free_predictions(task: str, scheme: str, data: pd.DataFrame) -> pd.Series:
+    """Predict each held-out trial with the mean GRS of that fold's training trials.
 
-    Each test trial is predicted by the mean GRS of that fold's training trials. It
-    is the score a model gets for knowing nothing about the surgeon's movements, and
-    because cross-validation biases such a predictor below zero, it is the fair
-    reference for any real model's rho: a model matters only to the extent it beats
-    THIS number, not zero.
+    This is the prediction of a model that knows nothing about the surgeon's
+    movements: one constant per fold.
     """
     sub = data[data["task"] == task]
     pred = pd.Series(index=sub.index, dtype=float)
     for fold in load_splits(task, scheme):
         pred.loc[fold.test] = sub.loc[fold.train, "grs"].mean()
-    return spearman(sub["grs"], pred)
+    return pred
+
+
+def feature_free_reference(task: str, scheme: str, data: pd.DataFrame) -> dict:
+    """Score the feature-free predictor on the REAL labels: Spearman rho and MAE.
+
+    The rho matters because cross-validation biases a constant-per-fold predictor
+    below zero, and under LOUO the bias is severe: each fold is one surgeon, the
+    surgeons differ in average GRS, and a surgeon with a high average gets a
+    training mean that is LOWER, so prediction and truth move oppositely across
+    folds. A real model's pooled rho is therefore only meaningful relative to this
+    number, not to zero.
+
+    The MAE (average miss in GRS points) has no such artifact: a model has shown
+    something only if its MAE is below this one.
+    """
+    sub = data[data["task"] == task]
+    pred = feature_free_predictions(task, scheme, data)
+    return {"spearman": spearman(sub["grs"], pred), "mae": mae(sub["grs"], pred)}
 
 
 def permutation_sentinel(task: str, scheme: str, data: pd.DataFrame, cfg: dict) -> dict:
