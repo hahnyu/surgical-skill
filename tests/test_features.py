@@ -12,6 +12,7 @@ from features import (
     acceleration,
     acceleration_features,
     count_movements,
+    gripper_cycles,
     idle_fraction,
     load_feature_config,
     path_length,
@@ -332,3 +333,65 @@ def test_config_holds_the_sparc_settings():
     assert cfg["sparc_cutoff_hz"] == 10.0
     assert cfg["sparc_amp_threshold"] == 0.05
     assert cfg["sparc_padlevel"] == 4
+
+
+GRIP_LOW, GRIP_HIGH = -0.6, -0.1   # as in configs/features.yaml
+CLOSED, OPEN = -0.9, 0.4           # the two humps of the PSM1 angle distribution
+
+
+def test_one_full_gripper_cycle():
+    angles = np.array([CLOSED] * 5 + [OPEN] * 5 + [CLOSED] * 5)
+    assert gripper_cycles(angles, GRIP_LOW, GRIP_HIGH) == 1
+
+
+def test_two_full_gripper_cycles():
+    angles = np.array(([CLOSED] * 4 + [OPEN] * 4) * 2 + [CLOSED] * 4)
+    assert gripper_cycles(angles, GRIP_LOW, GRIP_HIGH) == 2
+
+
+def test_a_half_cycle_is_not_counted():
+    # Closed then open, and the trial ends: only one transition, no full cycle.
+    angles = np.array([CLOSED] * 5 + [OPEN] * 5)
+    assert gripper_cycles(angles, GRIP_LOW, GRIP_HIGH) == 0
+
+
+def test_a_gripper_that_never_moves_has_no_cycles():
+    assert gripper_cycles(np.full(100, CLOSED), GRIP_LOW, GRIP_HIGH) == 0
+
+
+def test_jitter_inside_the_band_is_not_counted():
+    """The point of hysteresis. An angle flickering across one cut point (-0.35,
+    the middle of the band) would inflate a single-threshold count, but here it
+    never leaves the band, so nothing changes."""
+    angles = np.array([CLOSED] * 5 + [-0.40, -0.30] * 20 + [CLOSED] * 5)
+    assert gripper_cycles(angles, GRIP_LOW, GRIP_HIGH) == 0
+
+
+def test_jitter_just_outside_one_edge_is_not_counted():
+    # Wobbling between the band and the closed side never reaches the far side.
+    angles = np.array([CLOSED, -0.65, -0.55, -0.65, -0.55] * 10)
+    assert gripper_cycles(angles, GRIP_LOW, GRIP_HIGH) == 0
+
+
+def test_a_slow_crossing_through_the_band_counts_once():
+    ramp_up = np.linspace(CLOSED, OPEN, 30)      # passes through the whole band
+    ramp_down = np.linspace(OPEN, CLOSED, 30)
+    angles = np.concatenate([np.full(5, CLOSED), ramp_up, ramp_down])
+    assert gripper_cycles(angles, GRIP_LOW, GRIP_HIGH) == 1
+
+
+def test_frames_before_the_first_exit_from_the_band_are_skipped():
+    # Starts inside the band (state unknown); the first exit is not a transition.
+    angles = np.array([-0.3] * 5 + [OPEN] * 5 + [CLOSED] * 5 + [OPEN] * 5)
+    assert gripper_cycles(angles, GRIP_LOW, GRIP_HIGH) == 1
+
+
+def test_gripper_cycles_rejects_a_reversed_band():
+    with pytest.raises(ValueError):
+        gripper_cycles(np.zeros(10), -0.1, -0.6)
+
+
+def test_config_holds_the_gripper_band():
+    cfg = load_feature_config()
+    assert cfg["gripper_low_threshold"] == -0.6
+    assert cfg["gripper_high_threshold"] == -0.1

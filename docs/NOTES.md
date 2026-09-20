@@ -314,5 +314,41 @@ mean SPARC (closer to how SPARC is defined, but movements can be as short as
 to the speed threshold); (c) drop SPARC. Do not pick by which scores best
 against GRS.
 
+### Gripper cycles — hysteresis band, and a known failure case
+
+Decided 2026-09-20: count open/close cycles with a **hysteresis band** on the
+gripper angle, `[-0.6, -0.1]` (in `configs/features.yaml`). A cycle needs the
+angle to cross the whole band, so jitter near one cut point is not counted. Two
+state changes make one cycle; frames before the angle first leaves the band are
+skipped; a trial ending part-way through a cycle does not count it. We do not
+need to know which end is "open". Units look like radians (range about -1.1 to
++0.53), TODO(verify).
+
+Why the band goes where it does: PSM1's pooled angle distribution is clearly
+two-humped (about -0.9 and +0.5) with a sparse gap between, and the band sits in
+that gap (6.7% of PSM1 frames inside; PSM2 18.4%, because PSM2's distribution is
+smeared with no clean gap, so its count is the less trustworthy one). Disclosure:
+the band was placed after looking at the pooled, label-free distribution. It was
+never compared against GRS or skill.
+
+Effect of hysteresis, all trials pooled: a single cut at the band midpoint would
+give 1.13x (PSM1) and 1.29x (PSM2) as many cycles, i.e. jitter inflation the band
+removes.
+
+Label-free check: 206 arm-trials, no NaNs, one trial with 0 cycles.
+Cycles per trial (median, range): PSM1 7 (4-21), PSM2 3-8 (0-18), depending on task.
+
+**KNOWN FAILURE:** `Suturing_G002` PSM2 has 0 cycles. Its angle spans -0.521 to
++0.521 and never goes below the -0.6 threshold; 38.7% of its frames sit inside
+the band and 61.3% above it. The gripper is moving, but between "inside the
+band" and "open", so a fixed absolute band cannot see the cycles (a single
+midpoint cut finds several). Hypothesis, NOT verified: this arm does not close
+fully, e.g. while holding a needle. So a fixed band assumes every trial shares
+the same "closed" angle, and this trial breaks that. The 0 is a wrong value, not
+a real absence of gripping. Not fixed, because moving a pre-declared threshold
+after seeing one trial is tuning. Options if it matters: a per-trial band (cut
+relative to each trial's own range, at the cost of erasing range as a possible
+skill signal), or leave it and report the failure. One trial of 206.
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.

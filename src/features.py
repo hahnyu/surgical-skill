@@ -223,3 +223,35 @@ def smoothness(positions: np.ndarray, fps: int = FPS, **sparc_settings) -> float
     (cutoff_hz, amp_threshold, padlevel).
     """
     return sparc(speed(positions, fps), fps, **sparc_settings)
+
+
+def gripper_cycles(angles: np.ndarray, low: float, high: float) -> int:
+    """Number of complete gripper open/close cycles, using a hysteresis band.
+
+    The gripper is treated as "low" once its angle drops below `low` and as
+    "high" once it rises above `high`. Angles between the two thresholds (inside
+    the band) change nothing, so jitter around a single cut point cannot count
+    as cycles: the angle has to cross the whole band. We do not need to know
+    which end is "open"; a cycle is any low -> high -> low (or high -> low ->
+    high) excursion.
+
+    The state before the angle first leaves the band is unknown, so those first
+    frames are skipped. Each change of state is one transition; two transitions
+    make one cycle, so a trial ending part-way through a cycle does not count it.
+    """
+    if low >= high:
+        raise ValueError("low threshold must be below the high threshold")
+
+    state = None            # None until the angle first leaves the band
+    transitions = 0
+    for angle in angles:
+        if angle < low:
+            new_state = "low"
+        elif angle > high:
+            new_state = "high"
+        else:
+            continue        # inside the band: no change
+        if state is not None and new_state != state:
+            transitions += 1
+        state = new_state
+    return transitions // 2

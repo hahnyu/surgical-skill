@@ -24,3 +24,11 @@ idle_threshold_grid: [0.0005, 0.001, 0.002]
 sparc_cutoff_hz: 10.0        # ignore spectrum above this frequency
 sparc_amp_threshold: 0.05    # trim the spectrum's tail below this fraction of its peak
 sparc_padlevel: 4            # zero-pad the FFT to 2**(ceil(log2 n) + this) points
+
+# Gripper open/close cycles, hysteresis band on the gripper angle (units
+# unverified, values look like radians; TODO(verify)). The band sits in the sparse
+# gap between the two humps of the pooled PSM1 angle distribution (a label-free
+# look on 2026-09-20). It holds 6.7% of PSM1 frames and 18.4% of PSM2 frames;
+# PSM2's distribution has no clean gap, so its count is the less trustworthy one.
+gripper_low_threshold: -0.6
+gripper_high_threshold: -0.1
