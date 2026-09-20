@@ -828,5 +828,37 @@ despite unbalanced classes; units unverified.
 replace the sentinel criterion; whether LOUO is the headline in the paper; what to
 do about the classifier (fixed C, unordered).
 
+## Decisions after the Phase 3 results (2026-09-20)
+
+The user accepted my recommendations on the four open decisions, after I
+re-explained them in plain terms. Made AFTER seeing the results, and logged as such.
+
+1. **Widen the ridge alpha grid -> YES, in a NEW config, `configs/baseline_v2.yaml`.**
+   Grid becomes 0.1, 1, 10, 100, 1000, 10000. The original config and every result
+   under it are untouched; v2 is reported ALONGSIDE, never instead. Rows are
+   distinguished by `config_file`; prediction files by the `v2_` prefix. The
+   motivation used only inner-cross-validation evidence (alpha = 100 chosen in 25 of
+   38 folds, i.e. the optimum sat on the grid boundary), not outer-fold results, but
+   the decision was made after seeing both, and that is disclosed.
+   **Rule fixed before the run: this is the last extension.** If 10000 is chosen
+   often it is reported as is; the grid is not widened again. Only regression is
+   re-run (classification is unaffected: C is fixed).
+2. **Replace the leakage criterion -> YES, one-sided, in v2.** Flag only a shuffled-
+   label mean Spearman ABOVE +0.10, and log the feature-free null alongside. The
+   original two-sided rule and its two recorded FAILs stand as they are.
+3. **Headline number for the paper -> LOUO, with LOSO reported alongside.** LOUO
+   (a new surgeon) is what a real assessor would face; LOSO (a new trial from a
+   known surgeon) is partly surgeon recognition. CLAUDE.md already requires
+   reporting both. The LOSO-to-LOUO gap is presented as a finding about the
+   subject-identity confound. Phase 5 tables list LOUO first.
+4. **The skill classifier -> LEAVE ALONE and report honestly.** C stays 1.0, no
+   ordinal model, no class weights. With 2 experts and 2 intermediates any tuning to
+   improve LOUO would mostly fit noise. It is reported as a limitation and a
+   finding. Consequence for Phase 5: the calibration and selective-prediction
+   analysis on the baseline's `predict_proba` will be run on a classifier that does
+   no better than the majority class on new surgeons. That is still a valid analysis
+   (a weak model can be miscalibrated, and confidence can still rank trials), but it
+   must be described as such.
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.

@@ -19,8 +19,10 @@ from baseline import (
     load_dataset,
     log_run,
     make_classifier,
+    intercept_only_under_shuffles,
     make_regressor,
     permutation_sentinel,
+    run_experiment,
 )
 from loaders import Fold, load_splits
 from metrics import spearman
@@ -223,3 +225,79 @@ def test_log_run_accepts_a_new_column_without_losing_old_rows(tmp_path):
     assert len(log) == 2
     assert log.loc[0, "spearman"] == 0.5 and pd.isna(log.loc[0, "accuracy"])
     assert log.loc[1, "accuracy"] == 0.7 and pd.isna(log.loc[1, "spearman"])
+
+
+# --- the second config (2026-09-20) --------------------------------------------------
+
+
+V2_PATH = baseline.PROJECT_ROOT / "configs" / "baseline_v2.yaml"
+
+
+def test_v2_differs_from_the_original_only_where_intended(cfg):
+    v2 = load_config(V2_PATH)
+    old_grid, new_grid = cfg["regression"]["alpha_grid"], v2["regression"]["alpha_grid"]
+    assert new_grid[: len(old_grid)] == old_grid          # the old grid is kept whole
+    assert new_grid == [0.1, 1, 10, 100, 1000, 10000]     # and extended by exactly two steps
+    # Everything else about the regression is unchanged.
+    for key in ("target", "model", "inner_cv", "inner_scoring", "standardize"):
+        assert v2["regression"][key] == cfg["regression"][key]
+    assert v2["seed"] == cfg["seed"]
+    assert v2["bootstrap"] == cfg["bootstrap"]
+    assert v2["features_file"] == cfg["features_file"]
+    assert v2["classification"] == cfg["classification"]
+    assert v2["run_kinds"] == ["regression"]
+
+
+def test_the_original_config_is_untouched(cfg):
+    """Its results are reported alongside v2, so it must not have moved."""
+    assert cfg["regression"]["alpha_grid"] == [0.1, 1, 10, 100]
+    assert cfg["permutation_sentinel"] == {"n_permutations": 50, "max_abs_mean_rho": 0.10}
+    assert "run_kinds" not in cfg and "run_name" not in cfg
+
+
+def test_sentinel_one_sided_rule_ignores_a_negative_mean_but_flags_a_positive_one(data):
+    fake = synthetic(data, signal=False)
+    base = {"seed": 0, "regression": load_config()["regression"]}
+    # Invented features carry no signal, so the shuffled mean is near zero or slightly negative.
+    lenient = {**base, "permutation_sentinel": {"n_permutations": 5, "max_positive_mean_rho": 0.10}}
+    result = permutation_sentinel("Suturing", "LOUO", fake, lenient)
+    assert result["criterion"] == "one_sided"
+    assert result["passed"] == (result["mean_rho"] <= 0.10)
+    # A limit set far below the observed mean must flag it: proves the rule can fail.
+    strict = {**base, "permutation_sentinel": {"n_permutations": 5, "max_positive_mean_rho": -0.99}}
+    assert permutation_sentinel("Suturing", "LOUO", fake, strict)["passed"] is False
+
+
+def test_sentinel_two_sided_rule_still_works_for_the_original_config(data):
+    fake = synthetic(data, signal=False)
+    cfg2 = {"seed": 0, "regression": load_config()["regression"],
+            "permutation_sentinel": {"n_permutations": 5, "max_abs_mean_rho": 0.0001}}
+    result = permutation_sentinel("Suturing", "LOUO", fake, cfg2)
+    assert result["criterion"] == "two_sided"
+    assert result["passed"] is False        # a mean of exactly ~0 is essentially impossible
+
+
+def test_feature_free_predictor_is_biased_below_zero_under_shuffled_labels(data, cfg):
+    """The reason the sentinel's rule was made one-sided."""
+    small = {**cfg, "permutation_sentinel": {"n_permutations": 20, "max_abs_mean_rho": 0.1}}
+    for scheme in ("LOSO", "LOUO"):
+        assert intercept_only_under_shuffles("Suturing", scheme, data, small) < -0.15
+
+
+def test_run_experiment_prefixes_prediction_files_and_records_the_config(data, cfg, tmp_path, monkeypatch):
+    """A v2 run must never overwrite the original run's predictions."""
+    logged = []
+    monkeypatch.setattr(baseline, "PREDICTIONS_DIR", tmp_path)
+    monkeypatch.setattr(baseline, "log_run", lambda row, path=None: logged.append(row))
+    quick = {**load_config(V2_PATH), "bootstrap": {"n_resamples": 20, "confidence": 0.95, "seed": 0}}
+    state = {"git_commit": "test", "git_dirty": False}
+
+    run_experiment("Suturing", "LOSO", "regression", "smoothed_5hz", data, quick, state,
+                   config_file="configs/baseline_v2.yaml")
+    assert (tmp_path / "v2_smoothed_5hz_Suturing_LOSO_regression.csv").exists()
+    assert logged[0]["config_file"] == "configs/baseline_v2.yaml"
+
+    run_experiment("Suturing", "LOSO", "regression", "smoothed_5hz", data,
+                   {**cfg, "bootstrap": quick["bootstrap"]}, state)
+    assert (tmp_path / "smoothed_5hz_Suturing_LOSO_regression.csv").exists()
+    assert logged[1]["config_file"] == "configs/baseline.yaml"

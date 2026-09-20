@@ -1,0 +1,57 @@
+# Phase 3 baseline, second config. Decided 2026-09-20 AFTER seeing the results of
+# configs/baseline.yaml, and logged as such. The original config and its results are
+# untouched; this run is reported alongside them, not instead of them.
+#
+# Exactly two things differ from baseline.yaml (everything else is identical):
+#   1. The ridge alpha grid is wider.
+#   2. The leakage sentinel uses a one-sided criterion.
+# Classification is NOT re-run: nothing about it changed (C is fixed), so a rerun
+# would only duplicate rows.
+
+run_name: v2                             # prefixes the saved prediction files
+run_kinds: [regression]                  # classification unchanged, not re-run
+
+features_file: results/features.csv
+feature_set: smoothed_5hz
+sensitivity_feature_files:
+  raw: results/features_raw.csv
+  smoothed_8hz: results/features_8hz.csv
+
+seed: 0
+
+regression:
+  target: grs
+  model: ridge
+  # CHANGED. The original grid was [0.1, 1, 10, 100]; the inner search picked the top
+  # value (100) in 25 of 38 outer folds, i.e. the CV optimum sat on the grid boundary.
+  # Two steps are added. The motivation used ONLY inner-CV evidence (which alpha the
+  # training-set search chose), not outer-fold results, but this decision was made
+  # after seeing both, and that is disclosed.
+  # RULE FIXED NOW: this is the last extension. If 10000 is chosen often, that is
+  # reported as is; the grid is not widened again.
+  alpha_grid: [0.1, 1, 10, 100, 1000, 10000]
+  inner_cv: leave_one_subject_out
+  inner_scoring: neg_mean_squared_error
+  standardize: true
+
+classification:                          # unused in this run; kept identical for the record
+  target: skill
+  model: multinomial_logistic
+  C: 1.0
+  max_iter: 1000
+  standardize: true
+  class_weight: null
+
+bootstrap:
+  n_resamples: 2000
+  confidence: 0.95
+  seed: 0
+
+# CHANGED. The original two-sided rule (|mean rho| <= 0.10) failed in 2 of 6 cells on
+# a NEGATIVE mean, the opposite direction to leakage. Cross-validated rank correlation
+# is biased below zero by construction (a feature-free predictor scores -0.28 to -0.43
+# under the same shuffles). Leakage would push the mean ABOVE zero, so the rule is now
+# one-sided: flag only a mean above +0.10. The feature-free null is logged alongside.
+permutation_sentinel:
+  n_permutations: 50
+  max_positive_mean_rho: 0.10

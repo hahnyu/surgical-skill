@@ -15,6 +15,7 @@ Run everything:  uv run python src/baseline.py
 """
 
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -143,13 +144,40 @@ def cross_validate(task: str, scheme: str, kind: str, data: pd.DataFrame, cfg: d
     return result.loc[sub.index]
 
 
+def intercept_only_under_shuffles(task: str, scheme: str, data: pd.DataFrame, cfg: dict) -> float:
+    """Mean pooled Spearman of a predictor that ignores every feature.
+
+    Its prediction for each test trial is just the mean of the training labels,
+    with labels shuffled exactly as in the leakage sentinel (same seeds). It shows
+    how far below zero cross-validation pushes ANY model that regresses toward the
+    training mean: a test trial whose label is above average pulls the training
+    average below it, so the two are negatively related by construction.
+    """
+    sub = data[data["task"] == task]
+    rhos = []
+    for i in range(cfg["permutation_sentinel"]["n_permutations"]):
+        rng = np.random.default_rng(cfg["seed"] + i)
+        y = pd.Series(rng.permutation(sub["grs"].to_numpy()), index=sub.index)
+        pred = pd.Series(index=sub.index, dtype=float)
+        for fold in load_splits(task, scheme):
+            pred.loc[fold.test] = y.loc[fold.train].mean()
+        rhos.append(spearman(y, pred))
+    return float(np.nanmean(rhos))
+
+
 def permutation_sentinel(task: str, scheme: str, data: pd.DataFrame, cfg: dict) -> dict:
     """Leakage check: refit under SHUFFLED labels.
 
     Shuffling GRS across a task's trials destroys any real link between features
-    and skill. A leak-free pipeline then has nothing to find, so its pooled
-    Spearman should average near zero. A clearly positive mean would mean
-    something in the pipeline is seeing information it should not.
+    and skill. A leak-free pipeline then has nothing to find. A leak would push the
+    pooled Spearman ABOVE zero. Cross-validation itself pushes it BELOW zero (see
+    intercept_only_under_shuffles), so a negative mean is not a warning sign.
+
+    Two criteria are supported, chosen by which key the config has:
+      * max_abs_mean_rho: the original two-sided rule, |mean| <= limit. It
+        wrongly penalises the harmless negative bias and failed on it once.
+      * max_positive_mean_rho: one-sided, mean <= limit. Only a mean ABOVE the
+        limit is flagged. The intercept-only mean is reported alongside for context.
     """
     settings = cfg["permutation_sentinel"]
     mask = data["task"] == task
@@ -161,11 +189,19 @@ def permutation_sentinel(task: str, scheme: str, data: pd.DataFrame, cfg: dict) 
         oof = cross_validate(task, scheme, "regression", shuffled, cfg)
         rhos.append(spearman(oof["y_true"], oof["y_pred"]))
     rhos = np.array(rhos)
+    mean = float(np.nanmean(rhos))
+
+    if "max_positive_mean_rho" in settings:
+        criterion, passed = "one_sided", mean <= settings["max_positive_mean_rho"]
+    else:
+        criterion, passed = "two_sided", abs(mean) <= settings["max_abs_mean_rho"]
     return {
-        "mean_rho": float(np.nanmean(rhos)),
+        "mean_rho": mean,
         "sd_rho": float(np.nanstd(rhos)),
         "n_permutations": len(rhos),
-        "passed": bool(abs(np.nanmean(rhos)) <= settings["max_abs_mean_rho"]),
+        "criterion": criterion,
+        "passed": bool(passed),
+        "intercept_only_mean_rho": intercept_only_under_shuffles(task, scheme, data, cfg),
     }
 
 
@@ -189,7 +225,7 @@ def log_run(row: dict, path: Path = EXPERIMENTS_CSV) -> None:
     new.to_csv(path, index=False)
 
 
-def run_experiment(task, scheme, kind, feature_set, data, cfg, state) -> dict:
+def run_experiment(task, scheme, kind, feature_set, data, cfg, state, config_file="configs/baseline.yaml") -> dict:
     """One task, one scheme, one model: predict, evaluate, save, log."""
     oof = cross_validate(task, scheme, kind, data, cfg)
     boot = cfg["bootstrap"]
@@ -204,11 +240,12 @@ def run_experiment(task, scheme, kind, feature_set, data, cfg, state) -> dict:
         extra = {"model": "multinomial_logistic", "alpha_counts": ""}
 
     PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
-    oof.to_csv(PREDICTIONS_DIR / f"{feature_set}_{task}_{scheme}_{kind}.csv")
+    prefix = f"{cfg['run_name']}_" if cfg.get("run_name") else ""
+    oof.to_csv(PREDICTIONS_DIR / f"{prefix}{feature_set}_{task}_{scheme}_{kind}.csv")
 
     row = {
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "config_file": "configs/baseline.yaml",
+        "config_file": config_file,
         **state,
         "feature_set": feature_set,
         "cv_scheme": scheme,
@@ -223,11 +260,15 @@ def run_experiment(task, scheme, kind, feature_set, data, cfg, state) -> dict:
     return row
 
 
-def main() -> None:
-    cfg = load_config()
+def main(config_path: Path = CONFIG_PATH) -> None:
+    config_path = Path(config_path).resolve()
+    config_file = str(config_path.relative_to(PROJECT_ROOT))
+    cfg = load_config(config_path)
+    kinds = cfg.get("run_kinds", ["regression", "classification"])
     state = git_state()
     if state["git_dirty"]:
         print("WARNING: uncommitted changes; this run is not exactly reproducible from the commit.")
+    print(f"config: {config_file}   kinds: {kinds}")
 
     feature_sets = {cfg["feature_set"]: cfg["features_file"]}
     feature_sets.update({name: path for name, path in cfg["sensitivity_feature_files"].items()})
@@ -237,12 +278,16 @@ def main() -> None:
         print(f"\n=== feature set: {feature_set} ({feature_file}) ===")
         for scheme in SCHEMES:
             for task in TASKS:
-                reg = run_experiment(task, scheme, "regression", feature_set, data, cfg, state)
-                cls = run_experiment(task, scheme, "classification", feature_set, data, cfg, state)
-                print(f"{scheme} {task:15s} GRS rho={reg['spearman']:+.2f} "
-                      f"[{reg['spearman_low']:+.2f}, {reg['spearman_high']:+.2f}]  "
-                      f"MAE={reg['mae']:.2f} | N/I/E acc={cls['accuracy']:.2f} "
-                      f"bal.acc={cls['balanced_accuracy']:.2f} kappa={cls['quadratic_kappa']:+.2f}")
+                parts = []
+                if "regression" in kinds:
+                    reg = run_experiment(task, scheme, "regression", feature_set, data, cfg, state, config_file)
+                    parts.append(f"GRS rho={reg['spearman']:+.2f} [{reg['spearman_low']:+.2f}, "
+                                 f"{reg['spearman_high']:+.2f}]  MAE={reg['mae']:.2f}  alphas {reg['alpha_counts']}")
+                if "classification" in kinds:
+                    cls = run_experiment(task, scheme, "classification", feature_set, data, cfg, state, config_file)
+                    parts.append(f"N/I/E acc={cls['accuracy']:.2f} bal.acc={cls['balanced_accuracy']:.2f} "
+                                 f"kappa={cls['quadratic_kappa']:+.2f}")
+                print(f"{scheme} {task:15s} " + " | ".join(parts))
 
     print("\n=== leakage sentinel (shuffled labels, primary features) ===")
     data = load_dataset(cfg["features_file"])
@@ -251,16 +296,21 @@ def main() -> None:
             result = permutation_sentinel(task, scheme, data, cfg)
             log_run({
                 "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                "config_file": "configs/baseline.yaml", **state,
+                "config_file": config_file, **state,
                 "feature_set": cfg["feature_set"], "cv_scheme": scheme, "task": task,
                 "kind": "permutation_sentinel", "model": "ridge", "seed": cfg["seed"],
                 "sklearn_version": sklearn.__version__,
                 "sentinel_mean_rho": result["mean_rho"], "sentinel_sd_rho": result["sd_rho"],
                 "sentinel_n_permutations": result["n_permutations"], "sentinel_passed": result["passed"],
+                "sentinel_criterion": result["criterion"],
+                "sentinel_intercept_only_mean_rho": result["intercept_only_mean_rho"],
             })
-            print(f"{scheme} {task:15s} mean rho={result['mean_rho']:+.3f} (sd {result['sd_rho']:.3f}) "
-                  f"over {result['n_permutations']} shuffles -> {'PASS' if result['passed'] else 'FAIL'}")
+            print(f"{scheme} {task:15s} mean rho={result['mean_rho']:+.3f} (sd {result['sd_rho']:.3f}); "
+                  f"feature-free null {result['intercept_only_mean_rho']:+.3f}; "
+                  f"{result['criterion']} -> {'PASS' if result['passed'] else 'FAIL'}")
 
 
 if __name__ == "__main__":
-    main()
+    # uv run python src/baseline.py                       (the original config)
+    # uv run python src/baseline.py configs/baseline_v2.yaml
+    main(Path(sys.argv[1]) if len(sys.argv) > 1 else CONFIG_PATH)

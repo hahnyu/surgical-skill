@@ -10,38 +10,15 @@ Run:  uv run python src/diagnostics.py
 
 from datetime import datetime, timezone
 
-import numpy as np
 import pandas as pd
 import sklearn
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from baseline import (EXPERIMENTS_CSV, SCHEMES, feature_columns, git_state, load_config,
-                      load_dataset, log_run)
+from baseline import (EXPERIMENTS_CSV, SCHEMES, feature_columns, git_state, intercept_only_under_shuffles,
+                      load_config, load_dataset, log_run)
 from loaders import TASKS, load_splits
-from metrics import spearman
-
-
-def intercept_only_under_shuffles(task: str, scheme: str, data: pd.DataFrame, cfg: dict) -> float:
-    """Mean pooled Spearman of a predictor that ignores every feature.
-
-    Its prediction for each test trial is just the mean of the training labels,
-    with labels shuffled exactly as in the leakage sentinel (same seeds). It shows
-    how far below zero cross-validation pushes ANY model that regresses toward the
-    training mean: a test trial whose label is above average pulls the training
-    average below it, so the two are negatively related by construction.
-    """
-    sub = data[data["task"] == task]
-    rhos = []
-    for i in range(cfg["permutation_sentinel"]["n_permutations"]):
-        rng = np.random.default_rng(cfg["seed"] + i)
-        y = pd.Series(rng.permutation(sub["grs"].to_numpy()), index=sub.index)
-        pred = pd.Series(index=sub.index, dtype=float)
-        for fold in load_splits(task, scheme):
-            pred.loc[fold.test] = y.loc[fold.train].mean()
-        rhos.append(spearman(y, pred))
-    return float(np.nanmean(rhos))
 
 
 def surgeon_identification_accuracy(task: str, data: pd.DataFrame, cfg: dict) -> dict:
@@ -75,7 +52,7 @@ def main() -> None:
     state = git_state()
     data = load_dataset(cfg["features_file"])
     log = pd.read_csv(EXPERIMENTS_CSV)
-    primary = log[log["feature_set"] == cfg["feature_set"]]
+    primary = log[(log["feature_set"] == cfg["feature_set"]) & (log["config_file"] == "configs/baseline.yaml")]
     stamp = lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
     common = {"config_file": "configs/baseline.yaml", **state, "feature_set": cfg["feature_set"],
               "seed": cfg["seed"], "sklearn_version": sklearn.__version__}
