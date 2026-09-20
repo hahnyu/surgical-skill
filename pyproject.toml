@@ -13,3 +13,8 @@ dependencies = [
     "scikit-learn>=1.9.1",
     "scipy>=1.18.1",
 ]
+
+[tool.pytest.ini_options]
+# Let tests do `import loaders` without any sys.path juggling.
+pythonpath = ["src"]
+testpaths = ["tests"]
