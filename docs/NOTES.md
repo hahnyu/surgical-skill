@@ -715,5 +715,118 @@ any comparison goes in the write-up. Their protocol and features differ from our
 surgeons in training, so a model can score well by recognizing style; the LOSO to
 LOUO gap is the honest measure of that. Report both.
 
+## Phase 3 results (2026-09-20)
+
+Run from a clean tree at commit `cb813a2`; the diagnostics at a clean tree one
+commit later. 42 rows in `results/experiments.csv` (18 regression, 18
+classification, 6 sentinel) plus 9 post-hoc diagnostic rows. Out-of-fold
+predictions and `predict_proba` are in `results/predictions/` (gitignored). Design
+was pre-declared (entry above) and NOT changed after seeing results.
+
+**GRS regression, primary features (5 Hz).** Pooled out-of-fold Spearman rho, 95%
+interval from resampling surgeons (7-8 of them, so crude):
+
+| task | LOSO rho [95% interval] | LOUO rho [95% interval] |
+|---|---|---|
+| Suturing | +0.66 [+0.21, +0.84] | +0.21 [-0.26, +0.67] |
+| Knot-Tying | +0.79 [+0.41, +0.87] | +0.64 [+0.15, +0.82] |
+| Needle-Passing | +0.46 [+0.15, +0.73] | -0.13 [-0.39, +0.27] |
+
+MAE (GRS points): LOSO 3.20 / 2.88 / 3.79; LOUO 4.56 / 3.56 / 4.91. Kendall tau is
+in the log. LOUO intervals for Suturing and Needle-Passing include zero; Knot-Tying
+LOUO excludes it. The average LOUO rho is about 0.24. Bootstrap resamples skipped
+for an undefined Spearman: 0 in every run.
+
+**Acceptance (PLAN.md): LOSO Spearman on Suturing in the neighbourhood of
+0.5-0.7 -> 0.66, MET.** Read it with the caveat below: LOSO leaves the same
+surgeons in training. PLAN.md's reference figures (Zia & Essa 2018: per-task LOSO
+~0.75 / 0.63 / 0.46, LOUO average ~0.41) are UNVERIFIED (TODO(verify)) and their
+protocol and features differ; ours are 0.66 / 0.79 / 0.46 and ~0.24.
+
+**Skill classification (N/I/E), multinomial logistic, C = 1 fixed:**
+
+| task | LOSO accuracy / balanced / kappa | LOUO accuracy / balanced / kappa | majority-class rate |
+|---|---|---|---|
+| Suturing | 0.92 / 0.92 / +0.77 | 0.44 / 0.41 / -0.19 | 0.49 |
+| Knot-Tying | 0.97 / 0.97 / +0.98 | 0.31 / 0.28 / +0.13 | 0.44 |
+| Needle-Passing | 0.93 / 0.93 / +0.80 | 0.39 / 0.40 / -0.46 | 0.39 |
+
+LOUO is at or BELOW the rate for always guessing the biggest class (0.44 vs 0.49,
+0.31 vs 0.44, 0.39 vs 0.39), and kappa is negative for Suturing and
+Needle-Passing (worse than chance). Balanced accuracy and kappa intervals are
+approximate: bootstrap resamples that omit a class are scored on the classes
+present (scikit-learn warned about this many times).
+
+**MAIN FINDING -- the LOSO skill result is largely surgeon recognition.**
+(Post-hoc diagnostic, `src/diagnostics.py`, not pre-declared.) Trained on the
+other repetitions, the same features name the right SURGEON with accuracy 0.87 /
+0.83 / 0.93 (Suturing / Knot-Tying / Needle-Passing) against chance 0.12 / 0.12 /
+0.14. The self-declared skill label is a property of the surgeon, constant across
+their trials, so a model that recognises a surgeon can look up the label. That is
+consistent with LOSO skill accuracy of 0.92-0.97 collapsing to 0.31-0.44 under
+LOUO. It is consistent with, not proof of, the classifier using identity; LOUO is
+the number that means something. The regression is exposed to the same problem
+(GRS has a surgeon-level component): LOSO to LOUO is 0.66 to 0.21, 0.79 to 0.64,
+0.46 to -0.13. Knot-Tying is the task where the signal survives LOUO best, and
+task time is its strongest single feature (Phase 2, rho -0.79). This is the
+subject-identity confound named in CLAUDE.md, now measured.
+
+**Leakage sentinel: the pre-declared criterion FAILED in 2 of 6 cells.** Criterion
+declared in advance: mean Spearman under 50 shuffled-label refits within +/-0.10 of
+zero.
+
+| scheme | task | ridge sentinel mean rho | intercept-only mean rho | criterion |
+|---|---|---|---|---|
+| LOSO | Suturing | -0.147 | -0.280 | FAIL |
+| LOSO | Knot-Tying | -0.116 | -0.284 | FAIL |
+| LOSO | Needle-Passing | -0.082 | -0.331 | pass |
+| LOUO | Suturing | -0.092 | -0.392 | pass |
+| LOUO | Knot-Tying | -0.097 | -0.395 | pass |
+| LOUO | Needle-Passing | -0.067 | -0.426 | pass |
+
+All six means are NEGATIVE, the opposite direction to leakage. A post-hoc check
+(`src/diagnostics.py`) shows why: a predictor that ignores every feature and just
+predicts the training-label mean, under the same shuffles, scores -0.28 to -0.43.
+So cross-validated rank correlation is pushed below zero by construction (a test
+trial with an above-average label pulls the training average below it), and ridge
+sits between zero and that null. The criterion was mis-specified: I wrote a
+two-sided "near zero" without accounting for this bias. It is NOT being changed
+retroactively; the two FAILs are recorded as failures of the criterion as written.
+Reading: no evidence of leakage (which would push the mean positive), and the
+headline rhos above are, if anything, slightly UNDERSTATED by this bias. A
+corrected criterion (flag only a mean above +0.10, and compare with the
+intercept-only null) would be a new logged decision.
+
+The unit tests also confirm the safeguards can detect a leak: changing test-fold
+labels leaves that fold's predictions bit-identical, and a deliberately leaky
+variant (standardizing all rows before splitting) moved untouched test
+predictions by 16 GRS points where the real pipeline moved them by exactly 0.
+
+**Ridge alpha hit the edge of the declared grid.** alpha = 100, the largest value,
+was chosen in 25 of 38 outer folds (LOSO Suturing 5/5, LOSO Knot-Tying 5/5, LOSO
+Needle-Passing 2/5, LOUO Suturing 6/8, LOUO Knot-Tying 4/8, LOUO Needle-Passing
+3/7). The inner search wanted more shrinkage than the grid allowed, so the models
+may be under-regularised at the edge. Not changed. Widening the grid would be a new
+logged decision under a new config; it would use only inner-CV evidence, not
+outer-fold results, but the temptation should be acknowledged.
+
+**Sensitivity to smoothing (pre-declared): conclusions do not change.** GRS rho,
+5 Hz / raw / 8 Hz:
+- LOSO: Suturing 0.66 / 0.66 / 0.66; Knot-Tying 0.79 / 0.80 / 0.79;
+  Needle-Passing 0.46 / 0.46 / 0.30 (the one place the cutoff matters).
+- LOUO: Suturing 0.21 / 0.10 / 0.15; Knot-Tying 0.64 / 0.73 / 0.62;
+  Needle-Passing -0.13 / -0.24 / -0.27.
+
+**Limitations to carry into the paper.** 7-8 surgeons per task, so surgeon-level
+intervals are crude and do not reflect refitting variability; skill confounded with
+surgeon identity (measured above); C fixed at 1.0 and not searched (LOUO
+classification is at or below the majority rate, so this was not rescued by
+tuning); the classifier ignores that N < I < E is ordered; no class weighting
+despite unbalanced classes; units unverified.
+
+**Decisions now open (each would be a new logged decision):** widen the alpha grid;
+replace the sentinel criterion; whether LOUO is the headline in the paper; what to
+do about the classifier (fixed C, unordered).
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
