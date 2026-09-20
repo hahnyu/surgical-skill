@@ -166,5 +166,22 @@ Consequence to state in the paper: this makes the pipeline depend on human
 gesture annotations to mark task start and end. A fully automatic system would
 need its own boundary detector. Limitation, not a flaw in the comparison.
 
+### Speed from position — decision and sanity check
+
+Decision (2026-09-19): compute speed by **finite differences of the position
+columns** (`step length * fps`), not from the recorded velocity columns.
+Reason: it can be checked against a hand calculation on a synthetic path.
+
+Sanity check on `Suturing_B001` (windowed): finite-difference speed against the
+norm of the recorded `PSM*_vx/vy/vz`. Correlation 0.875 (PSM1) and 0.926
+(PSM2); mean finite-difference speed is ~95% of the recorded mean on both arms
+(0.0098 vs 0.0104 for PSM1). Agreement in both shape and level, so neither the
+column indexing nor the 30 Hz assumption looks wrong. One trial only, not a
+proof. No NaNs in the window.
+
+Units: positions span ~0.01-0.1 and mean speed is ~0.01 per second, consistent
+with meters and ~1 cm/s. TODO(verify) against the JIGSAWS documentation before
+any units appear in a figure or the paper.
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
