@@ -1,0 +1,18 @@
+# Feature-extraction thresholds. Chosen ONCE, on 2026-09-20, before any model
+# results existed. Do not tune these against results; see docs/NOTES.md.
+#
+# The choice rests on a physical/noise-floor argument, not on the data:
+# positions are recorded to 1e-6 m, so at 30 Hz the measurement noise floor for
+# speed is ~3e-5 m/s, and 1 mm/s is ~30x above it. A literature search found no
+# published numeric threshold (TODO(verify): re-check if a source turns up).
+
+# Speeds are in m/s.
+moving_speed_threshold: 0.001      # below this the instrument counts as idle
+
+# A "movement" is a run of consecutive frames at or above the threshold that
+# lasts at least this long. Seconds.
+min_movement_duration_s: 0.2
+
+# Robustness check only, run on the final analysis. NOT extra features.
+# Declared in advance: 0.5, 1 and 2 mm/s.
+idle_threshold_grid: [0.0005, 0.001, 0.002]

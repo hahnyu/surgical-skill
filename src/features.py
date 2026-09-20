@@ -79,3 +79,38 @@ def speed_features(positions: np.ndarray, fps: int = FPS) -> dict:
         "speed_std": float(s.std()),
         "speed_max": float(s.max()),
     }
+
+
+def idle_fraction(positions: np.ndarray, threshold: float, fps: int = FPS) -> float:
+    """Fraction of steps where the tool is moving slower than `threshold` (m/s).
+
+    "Idle" means speed strictly below the threshold. The threshold is chosen
+    once and recorded in configs/features.yaml; do not tune it.
+    """
+    return float((speed(positions, fps) < threshold).mean())
+
+
+def count_movements(
+    positions: np.ndarray, threshold: float, min_duration_s: float, fps: int = FPS
+) -> int:
+    """Number of movements: runs of steps at or above `threshold` that last at
+    least `min_duration_s` seconds.
+
+    Step by step: mark each step as moving (speed >= threshold) or not. Pad the
+    marks with a "not moving" at each end, so a run touching the start or the
+    end of the trial still has an edge. np.diff of the marks is +1 where a run
+    begins and -1 where it ends; subtracting the two positions gives each run's
+    length. Keep runs at least min_duration_s * fps steps long, and count them.
+
+    Known limitation: speed is raw. If it dips below the threshold for a single
+    frame in the middle of one real movement, this counts two shorter runs (and
+    may drop both if they fall under the minimum duration).
+    """
+    moving = speed(positions, fps) >= threshold
+    padded = np.concatenate([[False], moving, [False]]).astype(int)
+    edges = np.diff(padded)
+    run_starts = np.flatnonzero(edges == 1)
+    run_ends = np.flatnonzero(edges == -1)
+    run_lengths = run_ends - run_starts
+    min_steps = int(round(min_duration_s * fps))
+    return int((run_lengths >= min_steps).sum())

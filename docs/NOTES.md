@@ -218,5 +218,60 @@ settle before Phase 3, with a choice made in advance of seeing model results:
 (1) smooth or not, and if so how; (2) whether to keep `accel_max` at all.
 One trial only.
 
+### Idle and movement thresholds — DECIDED before any model results
+
+Chosen once on 2026-09-20 and stored in `configs/features.yaml`. Do not tune.
+
+- **Literature search first, as agreed.** Found no usable numeric threshold.
+  The ROVIMAS paper (Motion analysis of JIGSAWS using ROVIMAS, PMC7671974)
+  defines a movement qualitatively -- velocity rises to a peak and "returns
+  nearly to zero" -- counts local peaks after a Gaussian filter, and states **no**
+  numeric threshold or filter settings. The other results had no threshold, or
+  did not say how it was computed. So no source to cite. TODO(verify): re-check
+  if a source turns up; a cited number would replace ours.
+- **Idle:** speed strictly below **1 mm/s (0.001 m/s)**. Justification is
+  physical, not data-driven: positions are recorded to 1e-6 m, so the speed
+  noise floor at 30 Hz is ~3e-5 m/s and 1 mm/s is ~30x above it.
+- **Movement:** a run of consecutive steps at or above the threshold lasting at
+  least **0.2 s (6 steps)**. Chosen over peak counting because peak counting on
+  raw speed counts noise wiggles and needs three parameters (height,
+  prominence, separation); this needs two, and shares the threshold with idle.
+- **Robustness check, not features:** repeat the final analysis at 0.5, 1 and
+  2 mm/s, declared in advance.
+
+Disclosure: I looked at the pooled speed distribution (no labels) before
+proposing 1 mm/s, so the number was not chosen blind to where it falls. It was
+never compared against GRS or skill.
+
+The distribution offers no natural cut: speed is one continuous smear, no gap
+or second mode. Pooled, PSM1 spent 14% of frames below 1 mm/s and 47% below
+5 mm/s. Per-trial median speed varies ~5x across trials (3.0 to 15.2 mm/s on
+PSM1), which is why a per-trial relative threshold was rejected: overall pace is
+itself a skill signal and a relative threshold would erase it.
+
+Label-free sanity check with the chosen values, all 103 trials, both arms
+(206 rows, no NaNs, no trial with zero movements):
+
+| task | arm | idle fraction (min / median / max) | movements per minute (min / median / max) |
+|---|---|---|---|
+| Knot-Tying | PSM1 | 0.02 / 0.06 / 0.21 | 8.9 / 21.8 / 37.6 |
+| Knot-Tying | PSM2 | 0.06 / 0.16 / 0.31 | 16.6 / 28.0 / 40.2 |
+| Needle-Passing | PSM1 | 0.09 / 0.15 / 0.24 | 22.2 / 34.4 / 41.4 |
+| Needle-Passing | PSM2 | 0.11 / 0.21 / 0.37 | 19.6 / 30.1 / 39.6 |
+| Suturing | PSM1 | 0.06 / 0.14 / 0.32 | 19.4 / 32.0 / 41.3 |
+| Suturing | PSM2 | 0.13 / 0.26 / 0.37 | 18.4 / 26.3 / 34.9 |
+
+Sensitivity is large, as expected: median PSM1 idle fraction is 0.063 / 0.130 /
+0.234 at 0.5 / 1 / 2 mm/s (PSM2: 0.123 / 0.207 / 0.320). The absolute level of
+the feature depends heavily on the threshold; that is what the robustness
+check tests.
+
+Known limitations, written down now:
+- Speed is raw. One slow frame inside a real movement splits it in two, and both
+  halves may then fall under the 0.2 s minimum and vanish. No smoothing or
+  gap-merging (same open question as acceleration).
+- Raw movement count grows with trial duration, so it is partly redundant with
+  task time. A per-minute form is available; whether to use it is undecided.
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.

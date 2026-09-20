@@ -11,6 +11,8 @@ import pytest
 from features import (
     acceleration,
     acceleration_features,
+    count_movements,
+    idle_fraction,
     path_length,
     speed,
     speed_features,
@@ -129,3 +131,71 @@ def test_acceleration_features_on_known_values():
     feats = acceleration_features(positions, fps=30)
     assert feats["accel_mean"] == pytest.approx(0.9)
     assert feats["accel_max"] == pytest.approx(0.9)
+
+
+def path_from_steps(step_lengths_m):
+    """Build a trajectory along x from a list of per-frame step sizes (metres)."""
+    x = np.concatenate([[0.0], np.cumsum(step_lengths_m)])
+    return np.column_stack([x, np.zeros_like(x), np.zeros_like(x)])
+
+
+THRESHOLD = 0.001   # m/s, as in configs/features.yaml
+MIN_DURATION = 0.2  # s, as in configs/features.yaml (0.2 s * 30 fps = 6 steps)
+FAST = 0.002        # m per frame = 0.06 m/s, far above the threshold
+SLOW = 0.00001      # m per frame = 0.0003 m/s, safely below the threshold
+
+
+def test_idle_fraction_of_a_stationary_tool_is_one():
+    assert idle_fraction(np.zeros((100, 3)), THRESHOLD) == 1.0
+
+
+def test_idle_fraction_of_constant_motion_is_zero():
+    assert idle_fraction(straight_line(100, step=(FAST, 0, 0)), THRESHOLD) == 0.0
+
+
+def test_idle_fraction_on_known_values():
+    # 30 idle steps then 70 fast steps: idle fraction is exactly 0.3.
+    positions = path_from_steps([SLOW] * 30 + [FAST] * 70)
+    assert idle_fraction(positions, THRESHOLD) == pytest.approx(0.3)
+
+
+def test_movements_of_a_stationary_tool_is_zero():
+    assert count_movements(np.zeros((100, 3)), THRESHOLD, MIN_DURATION) == 0
+
+
+def test_movements_of_constant_motion_is_one():
+    positions = straight_line(100, step=(FAST, 0, 0))
+    assert count_movements(positions, THRESHOLD, MIN_DURATION) == 1
+
+
+def test_movements_counts_separate_runs():
+    # idle, 10 fast, idle, 8 fast, idle: two runs, both >= 6 steps.
+    steps = [SLOW] * 5 + [FAST] * 10 + [SLOW] * 5 + [FAST] * 8 + [SLOW] * 5
+    assert count_movements(path_from_steps(steps), THRESHOLD, MIN_DURATION) == 2
+
+
+def test_movements_ignores_runs_shorter_than_the_minimum():
+    # A 3-step burst (0.1 s) is below the 0.2 s minimum, so it is not a movement.
+    steps = [SLOW] * 5 + [FAST] * 3 + [SLOW] * 5 + [FAST] * 10 + [SLOW] * 5
+    assert count_movements(path_from_steps(steps), THRESHOLD, MIN_DURATION) == 1
+
+
+def test_movements_at_the_minimum_length_counts():
+    # Exactly 6 steps (0.2 s) is long enough; 5 steps is not.
+    six = [SLOW] * 5 + [FAST] * 6 + [SLOW] * 5
+    five = [SLOW] * 5 + [FAST] * 5 + [SLOW] * 5
+    assert count_movements(path_from_steps(six), THRESHOLD, MIN_DURATION) == 1
+    assert count_movements(path_from_steps(five), THRESHOLD, MIN_DURATION) == 0
+
+
+def test_movements_at_the_very_start_and_end_are_counted():
+    # Runs touching the first or last step must still be found (the padding).
+    steps = [FAST] * 8 + [SLOW] * 5 + [FAST] * 8
+    assert count_movements(path_from_steps(steps), THRESHOLD, MIN_DURATION) == 2
+
+
+def test_a_one_frame_dip_splits_a_movement():
+    """Documents the known limitation of raw speed: one slow frame in the middle
+    of a long movement cuts it in two. Here both halves survive the minimum."""
+    steps = [FAST] * 10 + [SLOW] + [FAST] * 10
+    assert count_movements(path_from_steps(steps), THRESHOLD, MIN_DURATION) == 2
