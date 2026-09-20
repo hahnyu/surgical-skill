@@ -8,13 +8,149 @@ Figure 3 `eval_risk_coverage.png`.
 **Provenance convention.** Each subsection ends with a *Source* line naming the `kind`
 values in `results/experiments.csv` that back it. Every number below traces to a logged `kind`;
 items that were previously prose-only in `docs/NOTES.md` have been logged in one pass and
-are cited by their `kind` inline.
+are cited by their `kind` inline. **Citation provenance:** bibliographic details and the
+quantitative figures attributed to prior work come from a supplied literature review and
+have not been independently verified against the primary sources; each should be checked
+before submission.
 
 ---
 
-## 2. Methods
+## 2. Related work
 
-### 2.1 Dataset
+### 2.1 The benchmark and its two sanctioned protocols
+
+JIGSAWS [Gao et al. 2014] is the standard public benchmark for robot-assisted surgical
+skill assessment, and the accompanying benchmark suite [Ahmidi et al. 2017] defines the two
+cross-validation schemes used throughout this literature. Leave-one-supertrial-out holds out
+the *i*-th repetition across all surgeons; leave-one-user-out holds out every trial from one
+surgeon. Both ship with the dataset and both are sanctioned, so the protocol we examine is
+the benchmark's own rather than an informal practice.
+
+The field is aware that individual style exists. A review of gesture recognition in robotic
+surgery [van Amsterdam et al. 2021] notes that leave-one-user-out is the harder setting "due
+to subject-specific style variability", and surveys methods that normalise such variability
+away. That framing treats identity as nuisance variance to be suppressed in pursuit of a
+better model. Our concern is the reverse: the same variability, under a protocol that places
+a surgeon on both sides of the split, does not degrade a score but inflates it.
+
+### 2.2 Label validity and protocol validity are separate critiques
+
+The closest existing critique of skill assessment on this benchmark concerns the target.
+Hendricks et al. [2024] show that the self-declared novice/intermediate/expert label
+correlates poorly with the expert GRS rating, and "Looking Beyond the Scale" [2026] reports
+the same mismatch. Our own data reproduce it — one surgeon labelled expert averages GRS 13.5
+while one labelled novice averages 19.1 (§3.1) — and we report that as a replication of
+their finding rather than as one of ours.
+
+The distinction from our contribution is worth stating precisely, because the two are easily
+conflated. **Hendricks et al. ask whether the target measures skill. We ask whether the
+evaluation protocol permits a model to succeed without measuring skill at all, whatever the
+target's quality.** These critiques are independent, and they compound. A perfectly valid
+target would not repair what we describe: surgeon identifiability is a property of the
+feature representation and the fold structure, not of what the label means, so a model could
+shortcut a flawless label just as readily. Conversely their critique survives a flawless
+protocol, since a well-designed split cannot rescue a target that measures the wrong thing.
+A reader persuaded by Hendricks et al. should not conclude that fixing the label would fix
+the benchmark.
+
+### 2.3 The performance gap is widely reported, and framed three other ways
+
+That accuracy falls under leave-one-user-out is not news in this literature. What differs is
+the explanation offered.
+
+I3D-SAP [IJCARS] reports near-ceiling supertrial-out accuracy across the three tasks, a
+significant drop under user-out evaluation, and near-chance transfer to an external dataset,
+concluding that generalisation to unseen surgeons is limited and calling for
+"surgeon-invariant feature learning"; the goal is named, the mechanism is not measured.
+"Looking Beyond the Scale" [2026] evaluates GRS prediction under a strict
+disjoint-participant protocol and reports a concordance correlation of about -0.03, below
+chance, having ruled out model-side causes through an extensive architecture and
+hyperparameter search, and attributes the failure to representation and annotation quality.
+Closest to our own framing, a markerless hand-tracking study of open-surgery suturing [2026]
+finds accuracy falling to 52.3% under leave-one-subject-out and states that this gap
+"quantifies the surgeon-specific component captured by video-level splits" — the same
+intuition we pursue, in a different modality, and without a direct test of that component.
+Lefor et al. [2020] earlier flagged the dataset's subject imbalance and an inverse
+correlation among subjects as a threat to generalisation, without quantifying either.
+
+The null in "Looking Beyond the Scale" overlaps our §4.3, and that overlap strengthens
+rather than duplicates the contribution. Their study and ours reach the same conclusion
+about cross-participant GRS prediction through almost entirely different routes: different
+feature representations, different model families, a different agreement metric, and a
+different reference against which the result is judged. A single null is always vulnerable
+to the objection that it reflects an idiosyncrasy of one pipeline — an underpowered search,
+an unlucky architecture, a poorly chosen metric. Two independent pipelines arriving at the
+same place is much harder to explain that way, and their architecture search excludes
+model-side causes that our single linear model could not have excluded alone. Independent
+corroboration by a different method is better evidence than either result on its own. What
+their study does not supply, and what we add, is the attribution: they establish that the
+signal is absent, while we measure where the apparent signal under the permissive protocol
+comes from.
+
+One counter-argument must be met directly, because it applies to every study above and to
+our §4.1. Responding to Saeb et al. [2017], Little et al. [2017] argued that a gap between
+record-wise and subject-wise cross-validation can arise from *underfitting* on heterogeneous
+data rather than from identity confounding, so that a gap alone establishes nothing about
+mechanism. The objection is sound, and none of the surgical studies above can answer it,
+because each reports only a gap. Our §4.2 is designed to answer it: the same 16 features,
+the same model and the same folds identify which of eight surgeons performed a held-out
+repetition with accuracy between 0.83 and 0.93, against chance rates near 0.13. A
+performance gap is ambiguous between confounding and underfitting; recoverable identity at
+roughly seven times chance is not.
+
+To our knowledge, no surgical skill assessment study both attributes the protocol gap to
+surgeon-identity leakage and demonstrates it by classifying the surgeon from the features
+used for skill. We state this as the negative finding of a targeted search rather than as a
+guarantee.
+
+### 2.4 Reported performance, and the missing reference
+
+Results on this benchmark are conventionally reported as accuracies, or as correlations
+between predicted and expert scores [Zia and Essa 2018; Wang et al. 2021; VBA-Net 2022].
+What is rarely reported alongside them is the value the same metric takes for a predictor
+using no motion information at all. We depart from that convention deliberately, for the
+reason given in §3.5 and §3.7: under leave-one-user-out, a predictor that returns its
+training fold's mean GRS scores approximately -0.8 on pooled rank correlation purely by
+construction. A positive correlation is therefore not self-interpreting, and a model can
+post one while committing larger absolute errors than that uninformative predictor.
+
+### 2.5 Calibration and selective prediction: a borrowed lineage
+
+We located no calibration or selective-prediction study of a surgical skill assessment
+model, and surgical work on confidence-gated deferral is correspondingly thin. The
+methodological lineage we draw on is therefore from diagnostic imaging and intensive care,
+where deferral is established and demonstrably useful: CoDoC [Dvijotham et al. 2023] reduces
+false positives by 25% at matched sensitivity while cutting clinician workload, and "Trust
+or Escalate" [ICLR 2025] provides calibrated selective evaluation with provable agreement
+guarantees. Overconfidence in model-as-judge settings is itself an active topic [Tian et al.
+2025]. We take from this literature one caution that bears directly on our own null result:
+deferral cannot manufacture reliability that the underlying model lacks ["Calibrated Triage,
+Not Autonomy", 2026].
+
+### 2.6 Zero-shot and text-based scoring
+
+Foundation models have reached this benchmark, but not in the role we examine. The nearest
+work, ZEAL, uses zero-shot video segmentation to produce features for a *trained* LSTM, so
+the learning still happens downstream; that is a different mechanism from a decision model
+scoring a rubric with no training examples at all. The model we evaluate, Jev, is marketed
+on calibration — its training method is branded Reinforcement Learning for Calibrated
+Decisions — though a trade critique notes the term is coined and that its "zero
+hallucinations" claim concerns schema conformance rather than correctness [Eliot 2026].
+Rather than rely on vendor claims, we note three independent evaluations published in
+September 2026 [priorbench; scienthoon; webofmike] converging on a consistent pattern:
+calibration holds on in-distribution data and degrades markedly out of distribution, with
+one reporting an expected calibration error roughly 4.4 times the in-domain noise floor on
+synthetic inputs, and finding the model's separate confidence field less informative than
+its maximum class probability. **All three are non-peer-reviewed single-author repositories
+or blog posts, and we cite them as preliminary external evidence rather than settled
+results**; they also identify the model by version strings that may not correspond exactly
+to the build we pinned, so we treat them as evidence about the model family rather than as
+replications of our setup. The pattern they describe is the one our §4.5 reports on unseen
+surgeons.
+
+## 3. Methods
+
+### 3.1 Dataset
 
 See Table 1.
 
@@ -45,7 +181,7 @@ than treated as interchangeable.
 *Source: dataset facts are enforced by assertions in `src/loaders.py` and its tests rather
 than logged as experiments.*
 
-### 2.2 Features
+### 3.2 Features
 
 We compute 16 descriptive motion features per trial from the patient-side manipulator
 channels — the instruments inside the workspace — rather than the surgeon-side console
@@ -84,7 +220,7 @@ movement count, because threshold crossings remain unstable after filtering.
 *Source: `configs/features.yaml`; feature-matrix construction is tested in
 `tests/test_features.py`.*
 
-### 2.3 Two prediction paths
+### 3.3 Two prediction paths
 
 **Baseline.** Ridge regression predicts GRS and multinomial logistic regression predicts
 the three-way skill label. Features are standardised inside a pipeline so that scaling
@@ -114,12 +250,12 @@ The rubric wording was authored before any trial was scored and was not revised
 afterwards. It was, however, written after we had seen the feature distributions and the
 baseline results, and it refers to completion time and pauses; this is a disclosed route
 by which the model's output could come to resemble a duration measure, and it bears on the
-interpretation in §3.4.
+interpretation in §4.4.
 
 *Source: `configs/baseline.yaml`, `configs/jev.yaml`; `kind=regression`,
 `kind=classification`.*
 
-### 2.4 Evaluation protocol
+### 3.4 Evaluation protocol
 
 JIGSAWS defines two cross-validation schemes. Leave-one-supertrial-out (LOSO) holds out
 the *i*-th repetition across all surgeons, so every surgeon appears in both training and
@@ -136,7 +272,7 @@ both schemes throughout. The contrast between them is the paper's primary object
 *Source: `src/loaders.py`; fold equivalence is pinned by
 `test_generated_splits_match_official_suturing`.*
 
-### 2.5 Reference predictor and the headline error metric
+### 3.5 Reference predictor and the headline error metric
 
 Predictive claims are stated against an explicit reference rather than against zero. The
 **feature-free reference** predicts every held-out trial with the mean GRS of its own
@@ -145,7 +281,7 @@ something only if its error falls below this reference's error.
 
 Our headline quantity is therefore the **reduction in mean absolute error relative to that
 reference**, in GRS points, positive meaning the model is better. This metric replaced the
-one we pre-registered, for a reason given in §2.7.
+one we pre-registered, for a reason given in §3.7.
 
 **Interpretation rule, fixed before any interval was computed:** a method beats the
 reference only if the lower bound of the 95% interval on its MAE reduction lies above zero.
@@ -161,7 +297,7 @@ guard.
 *Source: `kind=headline_mae_vs_reference`, `kind=jev_headline_mae_vs_reference`,
 `kind=diagnostic_feature_free_reference`.*
 
-### 2.6 Uncertainty
+### 3.6 Uncertainty
 
 Trials from one surgeon are not independent, so all intervals come from a bootstrap that
 resamples **whole surgeons** with replacement (2000 resamples, seed 0), never individual
@@ -177,7 +313,7 @@ surgeons**, which is more informative than comparing two independently computed 
 *Source: `src/metrics.py`; the whole-surgeon property is pinned by
 `test_bootstrap_resamples_whole_surgeons_never_individual_trials`.*
 
-### 2.7 Protocol scrutiny
+### 3.7 Protocol scrutiny
 
 Two findings about our own protocol belong in the record, and they are distinct.
 
@@ -198,11 +334,11 @@ LOUO each fold contains one surgeon and the prediction is one constant per fold;
 differ in mean GRS, and a surgeon with a high mean receives a lower training-fold mean, so
 prediction and truth move in opposite directions across folds by construction. Measured,
 the feature-free reference scores -0.78 to -0.86 on this statistic. A LOUO correlation
-therefore cannot be read against zero. We report the MAE reduction of §2.5 as the headline
+therefore cannot be read against zero. We report the MAE reduction of §3.5 as the headline
 and retain the correlations, always beside the reference value, never alone.
 
 No result was altered by either finding. The first is a negative check that passed; the
-second is a change of metric, and it is a post-hoc change (§3, preamble). We also note that
+second is a change of metric, and it is a post-hoc change (§4, preamble). We also note that
 the shuffled-label criterion we wrote was two-sided and so flagged two of six cells in the
 harmless negative direction; it was replaced with a one-sided criterion in a second
 configuration, with the original flags left on the record.
@@ -210,28 +346,28 @@ configuration, with the original flags left on the record.
 *Source: `kind=permutation_sentinel`, `kind=diagnostic_intercept_only`; leakage behaviour
 is pinned by tests in `tests/test_baseline.py`.*
 
-### 2.8 Pre-registration
+### 3.8 Pre-registration
 
 Analysis rules for each phase — feature thresholds, both evaluation schemes, model
 families, the metrics, the bin counts, the coverage levels, and the interpretation rule of
-§2.5 — were committed to a version-controlled log before the corresponding analysis was
+§3.5 — were committed to a version-controlled log before the corresponding analysis was
 run. Where an analysis was instead added after seeing results, it is labelled as such in
-§3. Two such additions are material and are identified there: the surgeon-identifiability
-diagnostic, and the metric substitution of §2.7.
+§4. Two such additions are material and are identified there: the surgeon-identifiability
+diagnostic, and the metric substitution of §3.7.
 
 ---
 
-## 3. Results
+## 4. Results
 
 Every subsection below is labelled **[pre-declared]** where the analysis was specified
 before the results were seen, or **[post-hoc]** where it was added afterwards to explain
-something already observed. In summary: the protocol comparison (§3.1), the calibration
-analysis (§3.5) and the selective-prediction analysis (§3.6) were pre-declared; the
-surgeon-identifiability diagnostic (§3.2), the task-time comparison (§3.4) and the
-headline error metric itself (§3.3) were not. The distinction is load-bearing for a paper
+something already observed. In summary: the protocol comparison (§4.1), the calibration
+analysis (§4.5) and the selective-prediction analysis (§4.6) were pre-declared; the
+surgeon-identifiability diagnostic (§4.2), the task-time comparison (§4.4) and the
+headline error metric itself (§4.3) were not. The distinction is load-bearing for a paper
 that examines protocol discipline, so it is carried in the text and not only in a table.
 
-### 3.1 The protocol gap [pre-declared]
+### 4.1 The protocol gap [pre-declared]
 
 Skill classification accuracy under LOSO, where every surgeon appears in training, is 0.92
 (suturing, 95% interval 0.85-0.98), 0.97 (knot-tying, 0.92-1.00) and 0.93
@@ -259,9 +395,9 @@ needle-passing (-0.47), indicating agreement worse than chance on those two task
 *Figure 1A; Table 2. Source: `kind=addendum_classification_ci`, `kind=addendum_protocol_gap`,
 `kind=addendum_majority_class`, `kind=classification` (Table T2).*
 
-### 3.2 The same features identify the surgeon [post-hoc]
+### 4.2 The same features identify the surgeon [post-hoc]
 
-This analysis was added after observing the gap in §3.1, in order to explain it. It was not
+This analysis was added after observing the gap in §4.1, in order to explain it. It was not
 part of the pre-registered plan, and it should be read as a diagnostic rather than as a
 confirmatory test.
 
@@ -273,7 +409,7 @@ chance rates of 0.125, 0.125 and 0.143. All three intervals lie far above chance
 
 Because the skill label is a property of the surgeon and is constant across that surgeon's
 trials, a model that can identify the surgeon can retrieve the label without representing
-skill. This is a sufficient mechanism for the LOSO figures in §3.1, and it is consistent
+skill. This is a sufficient mechanism for the LOSO figures in §4.1, and it is consistent
 with their collapse under LOUO, where identity carries no usable information about an
 unseen individual. It is not proof that the classifier relies on identity: we have
 demonstrated that the information is present and recoverable, not that this particular
@@ -283,10 +419,10 @@ we did not perform.
 *Figure 1B; Table 2. Source: `kind=addendum_surgeon_identity_ci`,
 `kind=diagnostic_surgeon_identity`.*
 
-### 3.3 GRS prediction against a feature-free reference [pre-declared design, post-hoc metric]
+### 4.3 GRS prediction against a feature-free reference [pre-declared design, post-hoc metric]
 
 The design of this analysis was pre-registered; the metric reported was not, for the reason
-given in §2.7. We flag that explicitly because the substitution is favourable to
+given in §3.7. We flag that explicitly because the substitution is favourable to
 readability and could otherwise pass unnoticed.
 
 Under LOUO, ridge regression reduces mean absolute error relative to the feature-free
@@ -299,10 +435,10 @@ way: +2.30 (1.14-3.45) on knot-tying, -0.05 (-1.05 to 0.96) on suturing and -0.2
 to 0.31) on needle-passing. The two knot-tying reductions are not distinguishable from one
 another: their intervals overlap across almost their whole length, and nothing in this
 study ranks the two paths. Its fitted slope was positive in all 38 folds, so the direction
-guard of §2.5 passed and no inverted score is being rescued by the calibration line.
+guard of §3.5 passed and no inverted score is being rescued by the calibration line.
 
 Under LOSO the same comparison is positive on all three tasks for ridge (+1.15, +1.78,
-+0.43, all intervals excluding zero), which is the §3.1 pattern reappearing in the
++0.43, all intervals excluding zero), which is the §4.1 pattern reappearing in the
 regression target.
 
 Agreement statistics tell a consistent story. Under LOUO, ICC(2,1) is 0.60 (0.35-0.78) for
@@ -311,22 +447,28 @@ from zero on the other two tasks for both paths (ridge 0.20 and 0.00; zero-shot 
 -0.13). Bland-Altman bias is small everywhere (-0.37 to +0.52 GRS points), but the limits
 of agreement span roughly ±11 points on suturing and needle-passing against ±7 on
 knot-tying — that is, on two of three tasks the disagreement between model and rater is
-about as large as the full spread of the scale. For context only, an OSATS inter-rater
-reliability of 0.64-0.72 has been reported (Martin et al. 1997, live-animal and bench
-stations, 20 residents); the coefficient is unnamed in that abstract and the setting
-differs from ours, so we make no claim that either method approaches a human ceiling.
+about as large as the full spread of the scale. For context, pooled inter-rater reliability for
+global rating scales in simulation-based assessment is ICC 0.78 (95% CI 0.71-0.83, 23
+studies; Ilgen et al. 2015), with the original OSATS report giving 0.64-0.72 (Martin et
+al. 1997). Our strongest agreement, 0.73 for the zero-shot path on knot-tying, sits below
+that pooled figure and carries an interval (0.53-0.85) wide enough to be uninformative
+about the comparison. We avoid the language of a ceiling: rater reliability is not a fixed
+bar but depends heavily on training, with untrained raters reported at ICC 0.26 and trained
+reliability not retained after several months (Gawad et al. 2019). The target these models
+are fitted to is therefore itself noisy, and the reading we take is simply that no method
+here demonstrated agreement comparable to trained human raters on any task.
 
 We note that the pooled out-of-fold Spearman correlations for these same predictions
 (LOUO: 0.21, 0.64, -0.13 for ridge) must be read against the feature-free reference's
 values on the identical folds (-0.78, -0.86, -0.79) rather than against zero, for the
-reason established in §2.7.
+reason established in §3.7.
 
 *Figure 1C; Table 3. Source: `kind=headline_mae_vs_reference`, `kind=jev_headline_mae_vs_reference`,
 `kind=eval_agreement`, `kind=regression` *
 
-### 3.4 A one-feature comparison [post-hoc]
+### 4.4 A one-feature comparison [post-hoc]
 
-This comparison was added after §3.3, to ask what the surviving knot-tying signal consists
+This comparison was added after §4.3, to ask what the surviving knot-tying signal consists
 of. It is diagnostic.
 
 The zero-shot model's overall score correlates with total task time at Spearman -0.91
@@ -351,7 +493,7 @@ signal survives.
 
 *Source: `kind=addendum_jev_score_vs_feature`, `kind=posthoc_time_only_headline`.*
 
-### 3.5 Calibration [pre-declared]
+### 4.5 Calibration [pre-declared]
 
 Each path is assessed against the target it was given: the baseline classifier against the
 self-declared skill label it was trained on, and the zero-shot model against the level
@@ -368,7 +510,7 @@ a mean stated confidence of 0.92, is correct 39% of the time (`addendum_reliabil
 Under LOSO the same classifier appears well calibrated and, if anything, underconfident:
 mean confidence 0.837 against accuracy 0.942, expected calibration error 0.105, Brier skill
 +0.778 (0.698-0.856). The same model and the same features thus yield opposite calibration
-verdicts under the two protocols, which is §3.1 restated in the confidence domain.
+verdicts under the two protocols, which is §4.1 restated in the confidence domain.
 
 The zero-shot model is also overconfident: mean confidence 0.696 against accuracy 0.301,
 expected calibration error 0.395 (0.317-0.494), Brier skill -0.433 (-0.588 to -0.242). Its
@@ -384,7 +526,7 @@ do not attribute the full -0.433 to overconfidence.
 *Figure 2 (`eval_reliability.png`); Table 4. Source: `kind=eval_calibration`,
 `kind=addendum_mean_confidence`, `kind=addendum_reliability_bin`.*
 
-### 3.6 Selective prediction [pre-declared]
+### 4.6 Selective prediction [pre-declared]
 
 The deployment question is whether a model's confidence identifies the trials on which it
 should defer to a human rater. We rank the 103 pooled trials by each path's own confidence,
@@ -394,7 +536,7 @@ defer the least confident first, and measure the absolute GRS error of those ret
 numbers.** Ridge regression emits no native confidence, so some proxy was required; we
 declared in advance that the baseline would pair its regression prediction with the
 classifier's top-class probability. Those are two different models fitted to two different
-targets, and §2.1 establishes that the targets disagree — one surgeon labelled expert
+targets, and §3.1 establishes that the targets disagree — one surgeon labelled expert
 averages GRS 13.5 while one labelled novice averages 19.1. The baseline's confidence
 therefore carries no information about the regression's error except whatever the two
 targets happen to share. **Its null result is uninformative about whether ridge knows when
@@ -426,7 +568,7 @@ remove the mismatch and is the concrete design a follow-up should adopt.
 
 *Figure 3 (`eval_risk_coverage.png`); Table 5. Source: `kind=eval_selective`, `kind=eval_coverage`.*
 
-### 3.7 Robustness
+### 4.7 Robustness
 
 Conclusions do not depend on the filtering choice. Repeating the LOUO analysis on
 unfiltered features and at an 8 Hz cutoff leaves knot-tying positive throughout (+1.18 to
@@ -448,9 +590,9 @@ both configuration files.*
 
 ---
 
-## 4. Discussion
+## 5. Discussion
 
-### 4.1 What the LOSO protocol measures
+### 5.1 What the LOSO protocol measures
 
 The three-way skill label in JIGSAWS is a property of the surgeon, not of the trial: it
 records hours of robotic experience and is constant across every trial that surgeon
@@ -459,9 +601,9 @@ can recognise an individual can therefore retrieve that individual's label witho
 representing skill at all, and it will be scored as correct for doing so.
 
 Our results are consistent with this happening. Changing only the protocol removes at least
-a third of the reported accuracy and plausibly more than half (§3.1), and the same 16
+a third of the reported accuracy and plausibly more than half (§4.1), and the same 16
 features identify which of eight surgeons performed a held-out repetition with accuracy
-0.83 to 0.93 against chance rates near 0.13 (§3.2). The information needed to shortcut the
+0.83 to 0.93 against chance rates near 0.13 (§4.2). The information needed to shortcut the
 task is demonstrably present in the feature representation, and it is present in quantity.
 
 We are careful about what this establishes. We have shown that surgeon identity is
@@ -487,17 +629,17 @@ clinical and behavioural benchmarks with few participants and several recordings
 do not claim to have measured the effect anywhere else, and a single dataset with eight
 participants cannot establish how common it is.
 
-### 4.2 What survives a held-out surgeon, and what it consists of
+### 5.2 What survives a held-out surgeon, and what it consists of
 
 On a genuinely unseen surgeon, one task of three retains a signal. On knot-tying both paths
 predict GRS better than a reference that simply predicts the training-fold mean, and on
 suturing and needle-passing neither does; on needle-passing the fitted baseline is worse
-than the reference (§3.3). The surviving effect is modest in absolute terms — roughly a
+than the reference (§4.3). The surviving effect is modest in absolute terms — roughly a
 quarter to a third of the per-task standard deviation of GRS.
 
 Two features of that surviving signal deserve emphasis. First, a single ordinary-least-
 squares line on total task time reduces error on knot-tying by an amount whose interval
-overlaps both models' across almost its whole length (§3.4). We therefore treat the three as
+overlaps both models' across almost its whole length (§4.4). We therefore treat the three as
 three estimates of one effect. This study does not demonstrate that 16 hand-crafted features
 or a commercial decision model add anything over trial duration on the one task where
 anything survives. Second, the zero-shot model's score correlates with task time at -0.81 to
@@ -506,13 +648,13 @@ duration measure, expressed on an ordinal scale.
 
 That result should be read with a disclosure. The rubric we wrote for the zero-shot model
 describes completion time and pauses, and it was written after we had seen which features
-carried signal, though before any trial was scored and without subsequent revision (§2.3).
+carried signal, though before any trial was scored and without subsequent revision (§3.3).
 This is a plausible route by which the model came to track duration, and we cannot exclude
 it. What the comparison does support is narrower and still useful: a model given no training
 examples, calibrated by two free parameters per fold, matches fitted alternatives on this
 task — and so does a one-feature regression, which is the more economical explanation.
 
-### 4.3 Confidence is not currently a basis for deferral
+### 5.3 Confidence is not currently a basis for deferral
 
 The deployment case for automated assessment usually assumes a human in the loop: the system
 scores what it is confident about and refers the rest. That requires confidence to track
@@ -521,23 +663,23 @@ correctness. On a held-out surgeon it does not.
 Both paths are overconfident. The baseline states a mean confidence of 0.755 and is correct
 on 0.379 of trials; the zero-shot model states 0.696 and is correct on 0.301. Both score
 worse than a constant forecast of the observed class frequencies, with Brier skill intervals
-lying entirely below zero (§3.5). The failure is in the direction that matters: a system
+lying entirely below zero (§4.5). The failure is in the direction that matters: a system
 that is confidently wrong on unfamiliar operators is worse for triage than one that is
 uncertain everywhere, because the errors it passes through unreviewed are exactly the ones
 it will not flag.
 
 The same model looks well calibrated under LOSO — mean confidence 0.837 against accuracy
-0.942, Brier skill +0.778. We read this as the §4.1 finding restated: apparent calibration,
+0.942, Brier skill +0.778. We read this as the §5.1 finding restated: apparent calibration,
 like apparent accuracy, is manufactured by the protocol. A calibration audit conducted under
 LOSO would have reported a well-behaved system.
 
 On selective prediction the two arms are not equivalent evidence, and we state the asymmetry
 plainly. Ridge has no native confidence, so the baseline pairs a regression prediction with a
-classifier's probability — two models, two targets, and §2.1 shows those targets disagree.
+classifier's probability — two models, two targets, and §3.1 shows those targets disagree.
 **That arm's null result is uninformative about whether ridge knows when it is wrong.** The
 zero-shot arm has no such defect, since its score and its confidence come from one model
 answering one question, and it is also null: ordering by its own confidence recovers 0.155
-GRS points with an interval of -0.416 to 0.606 (§3.6). This study therefore contributes one
+GRS points with an interval of -0.416 to 0.606 (§4.6). This study therefore contributes one
 clean null and one uninterpretable one, not two independent confirmations.
 
 Both nulls are under-powered. The upper interval bounds reach +0.61 and +0.92 GRS points, up
@@ -548,7 +690,7 @@ a predictor with native uncertainty — quantile or Bayesian regression, or a co
 — which would also remove the pairing defect. We regard that as the most concrete methodological
 improvement a follow-up should adopt.
 
-### 4.4 Implications for evaluation practice
+### 5.4 Implications for evaluation practice
 
 Three changes would be cheap and would have caught what we found.
 
@@ -559,7 +701,7 @@ a paired difference with an interval, since that is the quantity with a clear me
 
 **Anchor claims to an uninformative reference.** A correlation or an accuracy is not
 self-interpreting. We found this twice: a feature-free predictor scores about -0.8 on pooled
-rank correlation under LOUO purely by construction (§2.7), and a model can post a positive
+rank correlation under LOUO purely by construction (§3.7), and a model can post a positive
 correlation while having larger error than predicting the training mean. Reporting error
 against an explicit reference predictor made both visible, and costs nothing.
 
@@ -571,11 +713,11 @@ else on the only task with a surviving signal.
 
 We note the tension in making these recommendations from a study that itself substituted its
 headline metric after seeing that the pre-registered one was uninterpretable, and that added
-its central diagnostic post-hoc (§2.8, §3). We have labelled both rather than presenting the
+its central diagnostic post-hoc (§3.8, §4). We have labelled both rather than presenting the
 final analysis as the planned one. The recommendations stand on the mechanism, not on our
 adherence.
 
-### 4.5 Scope
+### 5.5 Scope
 
 This is a single-dataset case study. Eight surgeons — seven on one task — make every
 interval crude, and all intervals here express which surgeons were evaluated, not how results
