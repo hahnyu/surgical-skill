@@ -19,6 +19,7 @@ from loaders import (
     load_kinematics,
     load_meta,
     load_splits,
+    load_task_window,
     parse_trial_name,
     splits_are_official,
 )
@@ -64,6 +65,48 @@ def test_kinematics_shape_and_duration():
     assert len(df) == 5635
     duration = len(df) / loaders.FPS
     assert 10 < duration < 600, "a trial should be seconds-to-minutes long"
+
+
+def test_task_window_matches_hand_read_transcription():
+    """Suturing_D001's transcription runs 118..2770 (read by eye from the file)."""
+    assert load_task_window("Suturing_D001") == (118, 2770)
+
+
+def test_windowed_slice_is_one_indexed_and_inclusive():
+    """Frames 118..2770 inclusive is 2770 - 118 + 1 = 2653 rows, and the first
+    windowed row must be the file's 118th line (Python index 117). An off-by-one
+    here would shift every downstream feature by a frame without any error."""
+    full = load_kinematics("Suturing_D001")
+    win = load_kinematics("Suturing_D001", windowed=True)
+    assert len(full) == 2800
+    assert len(win) == 2653
+    assert win.iloc[0].equals(full.iloc[117])
+    assert win.iloc[-1].equals(full.iloc[2769])
+    assert list(win.index) == list(range(len(win))), "index should restart at 0"
+
+
+@pytest.mark.parametrize("task", TASKS)
+def test_every_window_fits_inside_its_file(task):
+    for trial in load_meta(task)["trial"]:
+        start, end = load_task_window(trial)
+        assert 1 <= start <= end <= count_frames(trial), trial
+
+
+def test_window_matches_official_suturing_split_filenames():
+    """The split filenames carry the same window; agreement on all 39 trials is
+    what identified the window as 'first gesture start to last gesture end'."""
+    base = loaders.DATA_DIR / "Experimental_setup" / "Suturing" / "unBalanced"
+    base = base / "SkillDetection" / "UserOut"
+    seen = 0
+    for f in base.rglob("Test.txt"):
+        for line in f.read_text().splitlines():
+            if not line.split():
+                continue
+            bits = line.split()[0].replace(".txt", "").split("_")
+            trial = "_".join(bits[:-2])
+            assert load_task_window(trial) == (int(bits[-2]), int(bits[-1])), trial
+            seen += 1
+    assert seen == 39
 
 
 def test_kinematics_missing_trial_raises():

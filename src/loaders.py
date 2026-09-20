@@ -83,12 +83,42 @@ def parse_trial_name(trial: str):
     return task, code[0], int(code[1:])
 
 
-def load_kinematics(trial: str, data_dir: Path = DATA_DIR) -> pd.DataFrame:
+def load_task_window(trial: str, data_dir: Path = DATA_DIR) -> tuple:
+    """The annotated task window: (first gesture start, last gesture end).
+
+    Read from the trial's transcription file, whose lines are
+    'start_frame end_frame gesture_id'. Frames are 1-indexed and inclusive.
+    This is the same window the official Suturing split filenames carry
+    (verified on 39 of 39 trials). The recording usually runs a little before
+    the first gesture and after the last; the window excludes that.
+    """
+    task = task_of(trial)
+    path = data_dir / task / "transcriptions" / f"{trial}.txt"
+    if not path.exists():
+        raise FileNotFoundError(f"no transcription file for trial {trial!r}: {path}")
+
+    starts, ends = [], []
+    for line in path.read_text().splitlines():
+        parts = line.split()
+        if len(parts) >= 3:
+            starts.append(int(parts[0]))
+            ends.append(int(parts[1]))
+    if not starts:
+        raise ValueError(f"{trial}: transcription file has no gestures")
+    return min(starts), max(ends)
+
+
+def load_kinematics(trial: str, windowed: bool = False, data_dir: Path = DATA_DIR) -> pd.DataFrame:
     """Read one trial's kinematics as a DataFrame with named columns.
 
     One row per frame at 30 Hz, 76 named columns. Values are space-padded with
     no header, so we tell pandas to split on runs of whitespace (sep=r"\\s+")
     and supply the names ourselves.
+
+    If windowed=True, keep only the annotated task window (see
+    load_task_window). Feature extraction uses windowed=True -- decision
+    2026-09-19, see docs/NOTES.md. The frame numbers are 1-indexed and
+    inclusive, so they become the Python slice [start - 1 : end].
     """
     task = task_of(trial)
     path = data_dir / task / "kinematics" / "AllGestures" / f"{trial}.txt"
@@ -101,6 +131,12 @@ def load_kinematics(trial: str, data_dir: Path = DATA_DIR) -> pd.DataFrame:
         raise ValueError(f"{trial}: expected 76 columns, got {df.shape[1]}")
     if df.empty:
         raise ValueError(f"{trial}: kinematics file is empty")
+
+    if windowed:
+        start, end = load_task_window(trial, data_dir)
+        if end > len(df):
+            raise ValueError(f"{trial}: window ends at {end} but file has {len(df)} rows")
+        df = df.iloc[start - 1:end].reset_index(drop=True)
     return df
 
 

@@ -132,11 +132,39 @@ file is authoritative** — it is self-consistent and matches the documented 6-3
 range. The split files are used for *fold membership only*; their score column
 is ignored.
 
-### Frame windows — open question for Phase 2
+### Frame windows — RESOLVED
 
 Split filenames embed a frame range (`Suturing_B001_000080_005635.txt`). For 17
 of 39 Suturing trials the end frame does not equal the file's row count (e.g.
-`Suturing_D001` names 1-2770, file has 2800 rows). These windows probably come
-from the gesture transcriptions. Unresolved: compute features over the full
-file or over the annotated window? It changes task time directly. Decide in
-Phase 2.
+`Suturing_D001` names 118-2770, file has 2800 rows).
+
+Finding: the window is **first gesture start to last gesture end** from the
+trial's `transcriptions/<trial>.txt`. It matches the split filename on **39 of
+39** Suturing trials, zero exceptions. Frames are **1-indexed and inclusive**
+(`Suturing_B001`'s window ends at 5635 and the file has exactly 5635 rows; some
+trials start at frame 1), so the Python slice is `iloc[start - 1 : end]`. No
+window runs past the end of its file, on any of the 103 trials.
+
+How much recording lies outside the window (fraction of the file):
+
+| task | median | worst trial | worst trailing time |
+|---|---|---|---|
+| Suturing | 1% | 10% | 291 frames (~10 s) |
+| Needle-Passing | 2% | 9% | 251 frames (~8 s) |
+| Knot-Tying | 7% | 42% | 951 frames (~32 s) |
+
+For most trials the choice hardly matters; for a few Knot-Tying trials it
+changes task time, idle fraction and path length materially.
+
+Decision (2026-09-19): **compute features over the annotated window**
+(`load_kinematics(trial, windowed=True)`). Reason: it measures the task, not
+setup or wind-down time, and it is the window the official splits use. The
+choice was made before looking at any relationship between window and GRS, and
+deliberately not tuned against outcomes.
+
+Consequence to state in the paper: this makes the pipeline depend on human
+gesture annotations to mark task start and end. A fully automatic system would
+need its own boundary detector. Limitation, not a flaw in the comparison.
+
+Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
+Cheap to add later since `windowed=False` is the default.
