@@ -23,32 +23,103 @@ are commonly reported under LOSO; (d) we audit what that buys, on a conventional
 and a commercial zero-shot decision model; (e) contributions, four bullets mapping to the
 Results subsections.
 
-### 2. Related work
-**Thesis:** The subject-imbalance concern has been flagged in this literature but never
-measured; calibration and selective prediction have never been audited for this task.
+### 1. Introduction  (structure fixed 2026-09-20 from the literature review)
 
-Frame as "flagged, but never measured, until now", on three supplied sources:
+**Thesis:** Identity confounding under naive cross-validation is a well-established
+failure mode across machine learning; it has not been demonstrated in robotic
+surgical-skill assessment, where the sanctioned LOSO protocol places the same surgeons in
+training and test.
 
-1. **The flag.** A 2020 IJCARS JIGSAWS motion-analysis study, citing Lefor et al., notes
-   the dataset's imbalance and an "inverse correlation among subjects" as a
-   generalisation concern — **without quantifying surgeon identifiability or any
-   same-surgeon vs new-surgeon gap.** This is the paper we are extending from a concern
-   into a measurement.
-2. **Calibration.** No prior calibration or selective-prediction audit of a surgical
-   skill-assessment model, on JIGSAWS or otherwise in this application.
-3. **Zero-shot scoring.** No prior LLM or text-based decision model doing zero-shot skill
-   scoring on JIGSAWS. The closest adjacent work, ZEAL, is zero-shot foundation-model
-   video segmentation feeding a *trained* LSTM — a different mechanism, and worth one
-   sentence distinguishing it, because a reviewer will raise it.
+- **¶1 The general phenomenon.** Saeb et al. 2017 (record-wise ~2% error against
+  subject-wise ~7%, rising to ~27% with two subjects) and Chaibub Neto et al. 2019, who
+  named "identity confounding". Reinforce with the closest structural mirror of our own
+  collapse: Brookshire et al. 2024 in EEG, where an Alzheimer's classifier reading above
+  99% under segment-based holdout was indistinguishable from chance on unseen subjects,
+  and a seizure classifier fell 79.1% to 65.1%. Add speaker leakage in depression
+  detection (arXiv 2604.14354) as a second modality. Umbrella: Geirhos et al. 2020
+  (shortcut learning) and Kapoor & Narayanan 2023 (leakage across 17 fields, 294 papers —
+  the peer-reviewed Patterns count, not the 329 of the preprint).
+- **¶2 What a good score would have to beat.** Human GRS inter-rater reliability pooled at
+  ICC 0.78 (Ilgen et al. 2015), but fragile: untrained raters as low as 0.26, and training
+  not retained months later (Gawad et al. 2019). This frames the target as a noisy label,
+  not a fixed ceiling.
+- **¶3 The gap and the thesis.** The failure mode is undemonstrated in robotic
+  surgical-skill assessment. State contributions: the protocol gap quantified with paired
+  intervals; the surgeon-identification experiment; the first calibration and
+  selective-prediction audit in this application; a zero-shot decision model evaluated
+  against a one-feature baseline.
 
-> **OPEN — one systematic search pass still required before submission.** These three
-> claims come from the user's own search and are the basis of the novelty argument; I have
-> not independently verified them. What has been done is web search, which is not
-> sufficient for a negative claim of this weight. Before submission someone must run
-> Scholar and PubMed systematically (and ideally IEEE Xplore, given the venue), resolve
-> the 2020 IJCARS paper to a specific citation with authors and DOI, and record the search
-> terms and dates so the negative claims are defensible. A novelty claim that fails review
-> damages the rest of the paper. **Status: open.**
+**Novelty framing, narrowed deliberately.** The review is explicit that the phenomenon is
+textbook and that we should not claim it. We claim the surgical instantiation and the
+quantification. Any sentence implying we discovered identity confounding is wrong.
+
+### 2. Related work  (six paragraphs; ¶5 and ¶6 compressed to 3-4 sentences each)
+
+**¶1 — The benchmark and its two sanctioned protocols.** Gao et al. 2014 (dataset),
+Ahmidi et al. 2017 (benchmarks), van Amsterdam et al. 2021 (gesture-recognition review,
+which notes LOUO is harder because of "subject-specific style variability" and treats that
+style as nuisance variance to normalise away rather than as leakage inflating a score).
+Purpose: establish that the protocol we audit is the dataset's own, not an unofficial
+practice, and that the field already knows subject style exists without treating it as a
+validity threat.
+
+**¶2 — Label validity is a different critique from protocol validity. [KEEP SHARP]**
+Anchored on Hendricks et al. 2024 (RA-L), with "Looking Beyond the Scale" (arXiv
+2608.17519) noted as reporting the same self-proclaimed-skill-versus-GRS mismatch. State
+their finding fairly, and note our own data reproduces it (§2.1, `addendum_label_vs_grs`)
+rather than presenting it as ours. Then the distinction, which is the paragraph's reason
+for existing: *they ask whether the target measures skill; we show the protocol lets a
+model succeed without measuring skill, whatever the target's quality.* The two critiques
+are independent and compound — **a perfectly valid target would not fix what we describe**,
+because identifiability is a property of the features and the fold structure rather than of
+the label's meaning; and conversely their critique survives a perfect protocol.
+
+**¶3 — The gap is widely reported in surgery, and framed three other ways.** The richest
+paragraph, and the one that carries the novelty claim.
+- I3D-SAP (IJCARS): near-ceiling LOSO figures, a "significant performance drop" under LOUO,
+  near-chance on external ROSMA, framed as a *generalisation limitation* with a call for
+  "surgeon-invariant feature learning" — the goal is named, the mechanism is not measured.
+- "Looking Beyond the Scale" (arXiv 2608.17519): JIGSAWS GRS prediction at CCC about -0.03
+  under disjoint-participant evaluation, with model-side causes ruled out by search; framed
+  as *representation and annotation quality*.
+- Markerless hand-tracking (PubMed 42616309): **the closest prior framing.** Accuracy falls
+  to 52.3% under leave-one-subject-out and the authors state the gap "quantifies the
+  surgeon-specific component captured by video-level splits". Distinguish honestly: same
+  intuition, different modality (open-surgery hand tracking, not JIGSAWS kinematics), and
+  **no direct surgeon-identification classifier**.
+- Lefor et al. 2020 (IJCARS, doi 10.1007/s11548-020-02259-z), cited once, correctly as first
+  author: imbalance and inverse correlation among subjects flagged as a concern, unquantified.
+- **Close with Little et al. 2017.** Their rebuttal to Saeb holds that a record-wise versus
+  subject-wise gap can reflect *underfitting* on heterogeneous data rather than identity
+  confounding, so a gap alone proves nothing. This is the strongest counter-argument to our
+  §3.1 and we preempt it with §3.2: the same 16 features identify which of eight surgeons
+  performed a held-out repetition at 0.83-0.93 against chance near 0.13. A gap is
+  ambiguous; recoverable identity at seven times chance is not.
+- **Negative finding, stated as a contribution:** no surgical-skill paper located both
+  attributes the gap to identity leakage and demonstrates it by classifying the surgeon from
+  the same features.
+
+**¶4 — Reported performance, and the missing reference.** Zia & Essa 2018, Wang et al. 2021
+(C3D multi-task), VBA-Net. Purpose: establish the reporting norm we depart from — accuracies
+and correlations quoted without an uninformative reference predictor — which motivates §2.5
+and makes the -0.8 result in §2.7 legible as a property of the metric rather than a quirk.
+
+**¶5 — Calibration and deferral: borrowed lineage. [COMPRESSED, 3-4 sentences]** No
+surgical-skill calibration or deferral precedent was located; the methodological lineage is
+diagnostic imaging and ICU. Cite CoDoC (Nature Medicine 2023) and "Trust or Escalate"
+(ICLR 2025) as the demonstrated-benefit cases, Tian et al. 2025 for LLM-judge
+overconfidence, and "Calibrated Triage, Not Autonomy" for the point that deferral cannot
+manufacture signal a model lacks. State the thinness as the second negative finding.
+
+**¶6 — Zero-shot decision models. [COMPRESSED, 3-4 sentences]** Distinguish ZEAL
+explicitly, since it is the nearest neighbour and a reviewer will raise it: zero-shot
+segmentation feeding a *trained* LSTM is a different mechanism from a decision model
+scoring a rubric with no training. Then Jev's evidence base, presented evidence-first
+rather than vendor-first: the RLCD calibration claim, the Forbes critique noting RLCD is a
+coined term and that "zero hallucinations" refers to schema conformance rather than
+correctness, and three independent September 2026 evaluations (priorbench, scienthoon,
+webofmike) converging on calibrated-in-domain and overconfident-out-of-distribution.
+**The non-peer-reviewed status of all three is stated in the body text, not a footnote.**
 
 ### 3. Methods
 **Thesis:** A protocol fixed in advance, with two prediction paths that see identical
