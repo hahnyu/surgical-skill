@@ -14,6 +14,7 @@ from pathlib import Path
 
 import numpy as np
 import yaml
+from scipy.spatial import ConvexHull, QhullError
 
 from loaders import FPS  # kinematics sampling rate, 30 Hz
 
@@ -131,3 +132,40 @@ def count_movements(
     run_lengths = run_ends - run_starts
     min_steps = int(round(min_duration_s * fps))
     return int((run_lengths >= min_steps).sum())
+
+
+def working_volume(positions: np.ndarray) -> float:
+    """Volume of the smallest convex shape enclosing every tool-tip position.
+
+    Think of stretching shrink-wrap around all the points the tool tip visited:
+    the volume inside is the convex hull volume. scipy.spatial.ConvexHull does
+    the geometry (via the Qhull library). Result is in m^3 if positions are in m.
+
+    If the points do not span three dimensions -- for example a tool that never
+    moved, or moved along a single line or flat plane -- there is no 3D shape
+    and Qhull raises an error; the true volume in that case is 0.
+    """
+    try:
+        return float(ConvexHull(positions).volume)
+    except QhullError:
+        return 0.0
+
+
+def bimanual_coordination(positions_a: np.ndarray, positions_b: np.ndarray, fps: int = FPS) -> float:
+    """Pearson correlation between the two instruments' speed over time.
+
+    +1 means the two arms speed up and slow down together, 0 means unrelated,
+    -1 means one speeds up as the other slows. np.corrcoef returns a 2x2 table
+    of correlations; the off-diagonal entry is the one we want.
+
+    Raises if either arm's speed never varies, because the correlation is then
+    undefined (0/0). Better to fail loudly than to put a NaN in the feature
+    matrix.
+    """
+    speed_a = speed(positions_a, fps)
+    speed_b = speed(positions_b, fps)
+    if len(speed_a) != len(speed_b):
+        raise ValueError("the two instruments must have the same number of frames")
+    if speed_a.std() == 0 or speed_b.std() == 0:
+        raise ValueError("speed is constant on one instrument; correlation is undefined")
+    return float(np.corrcoef(speed_a, speed_b)[0, 1])

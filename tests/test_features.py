@@ -19,6 +19,8 @@ from features import (
     speed_features,
     step_lengths,
     task_time,
+    bimanual_coordination,
+    working_volume,
 )
 
 
@@ -210,3 +212,64 @@ def test_config_holds_the_pre_declared_values():
     assert cfg["moving_speed_threshold"] == 0.001
     assert cfg["min_movement_duration_s"] == 0.2
     assert cfg["idle_threshold_grid"] == [0.0005, 0.001, 0.002]
+
+
+def test_working_volume_of_a_unit_cube():
+    corners = np.array([[x, y, z] for x in (0, 1) for y in (0, 1) for z in (0, 1)], dtype=float)
+    assert working_volume(corners) == pytest.approx(1.0)
+
+
+def test_working_volume_ignores_points_inside_the_shape():
+    # Fill the cube with random interior points: the hull is still the cube.
+    rng = np.random.default_rng(0)
+    corners = np.array([[x, y, z] for x in (0, 1) for y in (0, 1) for z in (0, 1)], dtype=float)
+    interior = rng.uniform(0.1, 0.9, size=(200, 3))
+    assert working_volume(np.vstack([corners, interior])) == pytest.approx(1.0)
+
+
+def test_working_volume_scales_with_the_cube_of_length():
+    corners = np.array([[x, y, z] for x in (0, 1) for y in (0, 1) for z in (0, 1)], dtype=float)
+    assert working_volume(corners * 0.02) == pytest.approx(0.02**3)
+
+
+def test_working_volume_of_a_tetrahedron():
+    # Corners (0,0,0), (1,0,0), (0,1,0), (0,0,1): volume 1/6.
+    tetra = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=float)
+    assert working_volume(tetra) == pytest.approx(1 / 6)
+
+
+def test_working_volume_is_zero_when_there_is_no_3d_shape():
+    assert working_volume(np.zeros((50, 3))) == 0.0            # never moved
+    assert working_volume(straight_line(50)) == 0.0            # moved along a line
+    flat = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]], dtype=float)
+    assert working_volume(flat) == 0.0                         # flat square
+
+
+def test_bimanual_coordination_of_identical_motion_is_one():
+    steps = [FAST, SLOW, FAST, FAST, SLOW, SLOW, FAST] * 5
+    a = path_from_steps(steps)
+    assert bimanual_coordination(a, a) == pytest.approx(1.0)
+
+
+def test_bimanual_coordination_of_opposite_motion_is_minus_one():
+    # Where one arm is fast the other is slow, and vice versa.
+    a = path_from_steps([FAST, SLOW] * 20)
+    b = path_from_steps([SLOW, FAST] * 20)
+    assert bimanual_coordination(a, b) == pytest.approx(-1.0)
+
+
+def test_bimanual_coordination_ignores_overall_scale_and_direction():
+    # Correlation compares the shape of the speed profiles, so an arm moving
+    # twice as fast in the same rhythm, along another axis, still correlates 1.
+    steps = np.array([FAST, SLOW, FAST, FAST, SLOW, SLOW, FAST] * 5)
+    a = path_from_steps(steps)
+    b = path_from_steps(steps * 2)[:, [1, 0, 2]]  # swap x and y
+    assert bimanual_coordination(a, b) == pytest.approx(1.0)
+
+
+def test_bimanual_coordination_raises_when_an_arm_never_changes_speed():
+    moving = path_from_steps([FAST, SLOW] * 20)
+    with pytest.raises(ValueError):
+        bimanual_coordination(moving, np.zeros_like(moving))
+    with pytest.raises(ValueError):
+        bimanual_coordination(moving, moving[:-5])   # different lengths
