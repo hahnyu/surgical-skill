@@ -66,12 +66,22 @@ concluding that generalisation to unseen surgeons is limited and calling for
 disjoint-participant protocol and reports a concordance correlation of about -0.03, below
 chance, having ruled out model-side causes through an extensive architecture and
 hyperparameter search, and attributes the failure to representation and annotation quality.
-Closest to our own framing, a markerless hand-tracking study of open-surgery suturing [2026]
-finds accuracy falling to 52.3% under leave-one-subject-out and states that this gap
-"quantifies the surgeon-specific component captured by video-level splits" — the same
-intuition we pursue, in a different modality, and without a direct test of that component.
-Lefor et al. [2020] earlier flagged the dataset's subject imbalance and an inverse
-correlation among subjects as a threat to generalisation, without quantifying either.
+A recent explainable-machine-learning study using rich kinematic features [Journal of
+Robotic Surgery, 2026] criticises prior JIGSAWS work for lacking subject-independent
+validation — the same complaint, again without a direct test. Lefor et al. [2020] earlier
+flagged the dataset's subject imbalance and an inverse correlation among subjects as a
+threat to generalisation, without quantifying either.
+
+Closest to our own framing is a markerless hand-tracking study of open-surgery suturing
+[2026], which finds accuracy falling to 52.3% under leave-one-subject-out and states that
+this gap "quantifies the surgeon-specific component captured by video-level splits". We
+should be plain about how little separates that sentence from our thesis: they articulate
+the same interpretation of the same kind of gap, and had they run a subject-identification
+probe, the attribution would already exist in this literature. Our contribution relative to
+that study is correspondingly narrower than relative to the others above — a different
+modality, robot kinematics rather than open-surgery hand tracking, and a direct measurement
+of the component they name but do not test. Taken together these studies establish that the
+field suspects a subject-specific confound; none tests it directly.
 
 The null in "Looking Beyond the Scale" overlaps our §4.3, and that overlap strengthens
 rather than duplicates the contribution. Their study and ours reach the same conclusion
@@ -105,19 +115,23 @@ guarantee.
 
 ### 2.4 Reported performance, and the missing reference
 
-Results on this benchmark are conventionally reported as accuracies, or as correlations
-between predicted and expert scores [Zia and Essa 2018; Wang et al. 2021; VBA-Net 2022].
-What is rarely reported alongside them is the value the same metric takes for a predictor
-using no motion information at all. We depart from that convention deliberately, for the
-reason given in §3.5 and §3.7: under leave-one-user-out, a predictor that returns its
+In the studies we examined [Zia and Essa 2018; Wang et al. 2021; VBA-Net 2022], results
+are reported as accuracies or as correlations between predicted and expert scores, without
+the value the same metric would take for a predictor using no motion information at all. We
+have not surveyed this literature systematically enough to call that a field-wide norm; it
+is the pattern in the work we read. We depart from it deliberately, for the reason given in
+§3.5 and §3.7: under leave-one-user-out, a predictor that returns its
 training fold's mean GRS scores approximately -0.8 on pooled rank correlation purely by
 construction. A positive correlation is therefore not self-interpreting, and a model can
 post one while committing larger absolute errors than that uninformative predictor.
 
 ### 2.5 Calibration and selective prediction: a borrowed lineage
 
-We located no calibration or selective-prediction study of a surgical skill assessment
-model, and surgical work on confidence-gated deferral is correspondingly thin. The
+Calibration has begun to receive attention in surgery: SurgiQ [2026] evaluates how well
+large language models are calibrated on surgical knowledge question-answering. That is a
+different setting from ours. We located no calibration or selective-prediction study of a
+surgical *skill assessment* model built from motion, kinematic or video data, and surgical
+work on confidence-gated deferral is correspondingly thin. The
 methodological lineage we draw on is therefore from diagnostic imaging and intensive care,
 where deferral is established and demonstrably useful: CoDoC [Dvijotham et al. 2023] reduces
 false positives by 25% at matched sensitivity while cutting clinician workload, and "Trust
@@ -138,10 +152,10 @@ Decisions — though a trade critique notes the term is coined and that its "zer
 hallucinations" claim concerns schema conformance rather than correctness [Eliot 2026].
 Rather than rely on vendor claims, we note three independent evaluations published in
 September 2026 [priorbench; scienthoon; webofmike] converging on a consistent pattern:
-calibration holds on in-distribution data and degrades markedly out of distribution, with
-one reporting an expected calibration error roughly 4.4 times the in-domain noise floor on
-synthetic inputs, and finding the model's separate confidence field less informative than
-its maximum class probability. **All three are non-peer-reviewed single-author repositories
+calibration holds on in-distribution data and degrades markedly out of distribution, and
+one reports that the model's separate confidence field is less informative than its maximum
+class probability. We give no figures from these evaluations, for the reason that
+follows. **All three are non-peer-reviewed single-author repositories
 or blog posts, and we cite them as preliminary external evidence rather than settled
 results**; they also identify the model by version strings that may not correspond exactly
 to the build we pinned, so we treat them as evidence about the model family rather than as
