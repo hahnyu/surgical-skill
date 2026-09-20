@@ -10,9 +10,26 @@ The observed values (a few centimeters of workspace, ~1 cm/s mean speed)
 are consistent with meters but that is not a source.
 """
 
+from pathlib import Path
+
 import numpy as np
+import yaml
 
 from loaders import FPS  # kinematics sampling rate, 30 Hz
+
+CONFIG_PATH = Path(__file__).resolve().parent.parent / "configs" / "features.yaml"
+
+
+def load_feature_config(path: Path = CONFIG_PATH) -> dict:
+    """Read the thresholds from configs/features.yaml.
+
+    yaml.safe_load turns the YAML text into a plain Python dict, e.g.
+    {"moving_speed_threshold": 0.001, ...}. Feature code takes these values as
+    arguments, so nothing is typed in twice and the config stays the one
+    record of what was chosen.
+    """
+    with open(path) as f:
+        return yaml.safe_load(f)
 
 
 def task_time(n_frames: int, fps: int = FPS) -> float:

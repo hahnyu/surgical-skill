@@ -13,6 +13,7 @@ from features import (
     acceleration_features,
     count_movements,
     idle_fraction,
+    load_feature_config,
     path_length,
     speed,
     speed_features,
@@ -199,3 +200,13 @@ def test_a_one_frame_dip_splits_a_movement():
     of a long movement cuts it in two. Here both halves survive the minimum."""
     steps = [FAST] * 10 + [SLOW] + [FAST] * 10
     assert count_movements(path_from_steps(steps), THRESHOLD, MIN_DURATION) == 2
+
+
+def test_config_holds_the_pre_declared_values():
+    """Locks the thresholds decided on 2026-09-20. If this fails, someone
+    changed a threshold: that must be a deliberate, logged decision in
+    docs/NOTES.md, not a quiet edit."""
+    cfg = load_feature_config()
+    assert cfg["moving_speed_threshold"] == 0.001
+    assert cfg["min_movement_duration_s"] == 0.2
+    assert cfg["idle_threshold_grid"] == [0.0005, 0.001, 0.002]
