@@ -16,6 +16,7 @@ PRE-DECLARED"). In that order:
 Run:  uv run python src/jev_analysis.py
 """
 
+import sys
 from datetime import datetime, timezone
 
 import numpy as np
@@ -117,6 +118,59 @@ def headline_for_scores(scores: pd.Series, data: pd.DataFrame, task: str, scheme
     return row
 
 
+# --- post-hoc: what is Jev actually tracking? -----------------------------------------------
+# NOT part of the pre-declared plan. Added after the first results to interpret them; it
+# changes no prediction and no result. Log and describe it as post-hoc.
+
+
+def score_vs_features(scores: pd.Series, data: pd.DataFrame, feature_columns: list) -> pd.DataFrame:
+    """Spearman of Jev's score with each feature, per task. Uses no labels at all."""
+    rows = []
+    for task in TASKS:
+        sub = data[data["task"] == task]
+        for column in feature_columns:
+            rows.append({"task": task, "feature": column,
+                         "rho": spearman(scores.loc[sub.index], sub[column])})
+    return pd.DataFrame(rows)
+
+
+def posthoc(feature_columns_list=None) -> None:
+    """Compare Jev with a one-feature model that only knows how long the task took."""
+    from baseline import feature_columns
+    cfg = load_jev_config()
+    base = load_config()
+    boot = base["bootstrap"]
+    table = load_scores(cfg)
+    data = load_dataset(base["features_file"])
+    jev = scores_for(table, PRIMARY, "run0", cfg["primary_run"])
+    columns = feature_columns(data)
+    stamp = lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
+    state = git_state()
+
+    print("POST-HOC A) What does Jev's overall_skill score follow? Spearman with each feature (no labels used).")
+    corr = score_vs_features(jev, data, columns)
+    for task in TASKS:
+        top = corr[corr["task"] == task].reindex(corr[corr["task"] == task]["rho"].abs().sort_values(ascending=False).index).head(5)
+        print(f"   {task:15s} " + "   ".join(f"{r.feature} {r.rho:+.2f}" for r in top.itertuples()))
+
+    print("\nPOST-HOC B) A one-feature reference: a straight line on task time alone, same folds, same yardstick.")
+    print(f"   {'scheme':5} {'task':15} {'ref MAE':>7} {'time-only MAE':>13} {'improvement [95%]':>24} {'beats':>5} | {'neg. slopes':>11}")
+    for scheme in ("LOUO", "LOSO"):
+        for task in TASKS:
+            sub = data[data["task"] == task]
+            r = headline_for_scores(sub["task_time_s"], data, task, scheme, boot)
+            print(f"   {scheme:5} {task:15} {r['reference_mae']:>7.2f} {r['model_mae']:>13.2f} "
+                  f"{r['improvement']:>+8.2f} [{r['improvement_low']:+.2f},{r['improvement_high']:+.2f}] "
+                  f"{'YES' if r['beats_reference'] else 'no':>5} | {r['n_negative_slopes']}/{r['n_folds']}")
+            log_run({"timestamp": stamp(), "config_file": "configs/jev.yaml", **state, "feature_set": "smoothed_5hz",
+                     "cv_scheme": scheme, "task": task, "kind": "posthoc_time_only_headline",
+                     "model": "line_on_task_time", "mae": r["model_mae"], "reference_mae": r["reference_mae"],
+                     "mae_improvement": r["improvement"], "mae_improvement_low": r["improvement_low"],
+                     "mae_improvement_high": r["improvement_high"], "beats_reference": r["beats_reference"],
+                     "n_negative_slopes": r["n_negative_slopes"], "n_folds": r["n_folds"],
+                     "mean_slope": r["mean_slope"], "n_subjects": r["n_subjects"]})
+
+
 def main() -> None:
     cfg = load_jev_config()
     base = load_config()
@@ -191,4 +245,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    # uv run python src/jev_analysis.py            (the pre-declared analysis)
+    # uv run python src/jev_analysis.py posthoc    (the post-hoc comparison only)
+    if sys.argv[1:] == ["posthoc"]:
+        posthoc()
+    else:
+        main()

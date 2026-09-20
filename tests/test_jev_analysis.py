@@ -11,6 +11,7 @@ from jev_analysis import (
     headline_for_scores,
     rank_agreement,
     repeatability,
+    score_vs_features,
     scores_for,
 )
 from loaders import OSATS_ELEMENTS, load_splits
@@ -141,3 +142,24 @@ def test_a_useless_score_gets_no_credit_beyond_the_mean(data):
     noise = pd.Series(rng.normal(size=len(data)), index=data.index)
     row = headline_for_scores(noise, data, "Suturing", "LOUO", BOOT)
     assert row["improvement_low"] <= 0 or row["improvement"] < 1.0
+
+
+# --- post-hoc helpers -----------------------------------------------------------------------
+
+
+def test_score_vs_features_finds_a_feature_the_score_copies_and_one_it_reverses(data):
+    columns = ["task_time_s", "PSM1_path_length"]
+    score = data["task_time_s"].copy()
+    out = score_vs_features(score, data, columns).set_index(["task", "feature"])["rho"]
+    assert out[("Suturing", "task_time_s")] == pytest.approx(1.0)
+    reversed_score = -data["task_time_s"]
+    out2 = score_vs_features(reversed_score, data, columns).set_index(["task", "feature"])["rho"]
+    assert out2[("Knot_Tying", "task_time_s")] == pytest.approx(-1.0)
+
+
+def test_a_score_equal_to_grs_would_beat_the_reference_by_the_whole_reference_error(data):
+    """Sanity bound on the yardstick: an oracle score gives zero error, so the improvement
+    equals the reference MAE."""
+    row = headline_for_scores(linear_scores(data, "Knot_Tying"), data, "Knot_Tying", "LOUO", BOOT)
+    assert row["model_mae"] == pytest.approx(0.0, abs=1e-9)
+    assert row["improvement"] == pytest.approx(row["reference_mae"])
