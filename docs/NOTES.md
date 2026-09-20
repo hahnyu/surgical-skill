@@ -507,5 +507,29 @@ Decision 3's rationale was therefore only partly borne out: smoothing is still
 justified by the acceleration result and the jump reduction, but not by the
 movement-splitting one.
 
+### Movement count DROPPED from the matrix (2026-09-20) -- 103 x 16
+
+Decision: option (d) of the four offered after the smoothing negative result.
+`movements_per_min` is removed from the feature matrix (both arms). Reasons:
+threshold crossings chatter even after smoothing (34.6% of counted movements
+still followed within <= 2 frames by another), it is the feature most sensitive
+to the smoothing choice (rank agreement 0.78-0.85 raw vs 5 Hz), and every
+repair (hysteresis, gap merging) adds parameters chosen after seeing this
+result. Idle fraction, which is a share of time and not a count of crossings,
+stays and is stable (rank agreement 0.99).
+
+Cost: PLAN.md lists "number of movements" as a Phase 2 feature; that item is now
+unmet, as is smoothness (SPARC). PLAN.md's acceptance (103 rows, no NaNs, >= 3
+features that visibly separate skill levels) does not depend on either.
+`count_movements()` and its tests, `min_movement_duration_s` in the config, and
+`sparc()` are kept in case we revisit; `moving_speed_threshold` is still used by
+idle fraction.
+
+Final matrix: **103 x 16**, no NaN under raw, 8 Hz or 5 Hz. Columns:
+`task_time_s`, `bimanual_speed_corr`, and per arm (PSM1, PSM2) path length, speed
+mean, speed std, accel mean, idle fraction, hull volume, gripper cycles.
+Pairs at |Spearman| >= 0.9: two (`PSM1_speed_mean ~ PSM1_accel_mean` 0.91,
+`PSM2_speed_mean ~ PSM2_speed_std` 0.91). 132 tests pass.
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.

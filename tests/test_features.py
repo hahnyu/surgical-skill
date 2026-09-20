@@ -420,7 +420,7 @@ def raw_matrix():
 
 
 def test_feature_matrix_shape_and_index(matrix):
-    assert matrix.shape == (103, 18)
+    assert matrix.shape == (103, 16)
     assert matrix.index.is_unique
     assert set(matrix.index) == set(loaders.load_all_meta()["trial"])
 
@@ -562,21 +562,15 @@ def test_config_holds_the_smoothing_choice():
 
 def test_matrix_columns_match_the_bundle(matrix):
     per_arm = ["path_length", "speed_mean", "speed_std", "accel_mean",
-               "idle_fraction", "movements_per_min", "working_volume", "gripper_cycles"]
+               "idle_fraction", "working_volume", "gripper_cycles"]
     expected = ["task_time_s"] + [f"{a}_{f}" for a in ("PSM1", "PSM2") for f in per_arm] + ["bimanual_speed_corr"]
     assert list(matrix.columns) == expected
 
 
 def test_dropped_features_are_absent(matrix):
     for arm in ("PSM1", "PSM2"):
-        for gone in ("speed_max", "accel_max", "sparc", "n_movements"):
+        for gone in ("speed_max", "accel_max", "sparc", "n_movements", "movements_per_min"):
             assert f"{arm}_{gone}" not in matrix.columns
-
-
-def test_movements_per_min_is_a_whole_count_divided_by_minutes(matrix):
-    for arm in ("PSM1", "PSM2"):
-        counts = matrix[f"{arm}_movements_per_min"] * matrix["task_time_s"] / 60
-        assert np.allclose(counts, counts.round(), atol=1e-6), "should be whole counts / minutes"
 
 
 @pytest.mark.parametrize("trial", ["Suturing_B001", "Knot_Tying_D003", "Needle_Passing_B001"])

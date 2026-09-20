@@ -302,8 +302,9 @@ def trial_features(trial: str, cfg: dict) -> dict:
     a whole.
 
     Left out on purpose (decisions 2026-09-20, docs/NOTES.md): speed_max and
-    accel_max (corrupted by position jumps) and SPARC (whole-trial SPARC mostly
-    measures duration and movement count). The functions still exist.
+    accel_max (corrupted by position jumps), SPARC (whole-trial SPARC mostly
+    measures duration and movement count), and movement count (threshold
+    crossings chatter even after smoothing). The functions still exist.
     """
     kin = load_kinematics(trial, windowed=True)
     cutoff = cfg["smoothing_cutoff_hz"]
@@ -317,16 +318,12 @@ def trial_features(trial: str, cfg: dict) -> dict:
     out = {"task_time_s": duration_s}
     for arm in ARMS:
         pos = positions[arm]
-        n_movements = count_movements(
-            pos, cfg["moving_speed_threshold"], cfg["min_movement_duration_s"]
-        )
         feats = {
             "path_length": path_length(pos),
             "speed_mean": speed_features(pos)["speed_mean"],
             "speed_std": speed_features(pos)["speed_std"],
             "accel_mean": acceleration_features(pos)["accel_mean"],
             "idle_fraction": idle_fraction(pos, cfg["moving_speed_threshold"]),
-            "movements_per_min": n_movements / (duration_s / 60),
             "working_volume": working_volume(pos),
             "gripper_cycles": gripper_cycles(
                 kin[f"{arm}_grip"].to_numpy(),

@@ -11,6 +11,9 @@ moving_speed_threshold: 0.001      # below this the instrument counts as idle
 
 # A "movement" is a run of consecutive frames at or above the threshold that
 # lasts at least this long. Seconds.
+# NOTE: movement count is NOT in the feature matrix (dropped 2026-09-20: threshold
+# crossings chatter even after smoothing). count_movements() and this value are
+# kept for a possible revisit; moving_speed_threshold is still used by idle.
 min_movement_duration_s: 0.2
 
 # Robustness check only, run on the final analysis. NOT extra features.
