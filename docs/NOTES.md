@@ -1233,5 +1233,121 @@ that a method "reaches the ceiling".
 **Not done, by design.** No recalibration of either path; no other confidence signal;
 no tuning of bins, coverage levels or thresholds after results.
 
+## Phase 5 results (2026-09-20)
+
+`uv run python src/evaluation.py` (run from a clean tree at the commit that added it, after
+the design entry above); figures from `src/plot_evaluation.py` in `results/figures/`
+(`eval_reliability.png`, `eval_risk_coverage.png`, `eval_bland_altman_LOUO.png`;
+gitignored). Rows in `experiments.csv`: `eval_agreement`, `eval_calibration`,
+`eval_selective`, `eval_coverage`. Tests: 21 in `tests/test_evaluation.py` (ECE checked equal
+to netcal on random AND real data; ICC(2,1) checked against the ANOVA formula; hand-worked
+Brier, AURC, coverage and Bland-Altman cases). Design pre-declared and followed; nothing
+was changed after seeing a result.
+
+**Data fact:** Jev's API returns level probabilities rounded to two decimals, so a row can
+sum to 0.99 (97% of rows sum to exactly 1.00; worst deviation 0.010). They are used as
+returned, per the "raw, no recalibration" rule; the effect on five bins is immaterial.
+
+**THE ANSWER to the question set for Phase 5.**
+- *When the model is confident, is it right?* On a NEW surgeon, **no**, for either path.
+- *Can its confidence tell us which trials to hand to a human?* **No evidence that it can**,
+  for either path, under either scheme.
+
+**B. Calibration (pooled 103 trials, 5 bins, surgeon-bootstrap 95% intervals).** Each path is
+judged on its own truth, so the two are NOT compared head to head.
+
+| path / scheme | accuracy | ECE [95%] | MCE | Brier | best-constant Brier | Brier skill [95%] |
+|---|---|---|---|---|---|---|
+| baseline, LOUO (N/I/E) | 0.38 | 0.377 [0.237, 0.541] | 0.53 | 0.875 | 0.647 | **-0.351 [-0.688, -0.092]** |
+| baseline, LOSO (N/I/E) | 0.94 | 0.105 [0.057, 0.154] | 0.37 | 0.143 | 0.647 | +0.778 [+0.698, +0.856] |
+| Jev, raw (level implied by GRS) | 0.30 | 0.395 [0.317, 0.494] | 0.55 | 1.021 | 0.713 | **-0.433 [-0.588, -0.242]** |
+
+- **Baseline under LOUO is overconfident and worse than a constant forecast** (skill
+  interval entirely below zero). Mean stated confidence 0.76 against accuracy 0.38. Its most
+  confident bin (mean confidence 0.92, n = 46) is right 39% of the time; the 0.70 bin
+  (n = 33) is right 42%. The confidence hardly rises with correctness.
+- **Baseline under LOSO looks well calibrated and, if anything, under-confident** (0.53 stated,
+  0.90 right; 0.70 stated, 0.87 right; 0.93 stated, 0.97 right). This is the surgeon-recognition
+  effect again (94% accuracy): the model is confident and right because it recognises the
+  surgeon, not because it judges skill. Same features, opposite calibration verdict under
+  the two schemes.
+- **Jev, raw, is overconfident and worse than a constant** (skill interval entirely below
+  zero): mean confidence 0.70 against accuracy 0.30; its 0.70 bin (n = 40) is right 15% of
+  the time. Within-one-level accuracy is 0.84, so it is usually close. Jev's level usage
+  (levels 0-4: 6 / 29 / 29 / 32 / 7) sits about one level above the GRS-implied truth
+  (9 / 37 / 35 / 19 / 3), as the pre-declared limit warned: **exact-level miscalibration here
+  mixes genuine overconfidence with a scale offset between Jev's wording and the GRS-derived
+  levels, and the two cannot be separated without a recalibration that was ruled out.**
+
+**C. Selective prediction on GRS error (pooled 103; usefulness = overall MAE - AURC).**
+
+| path / scheme | overall MAE | AURC | oracle | usefulness [95%] | informative (rule)? |
+|---|---|---|---|---|---|
+| baseline, LOUO | 4.31 | 4.17 | 1.86 | +0.13 [-0.63, +0.92] | no |
+| Jev, LOUO | 4.05 | 3.89 | 1.96 | +0.16 [-0.42, +0.61] | no |
+| Jev, LOUO, max level probability | 4.05 | 3.90 | 1.96 | +0.15 [-0.45, +0.63] | no |
+| baseline, LOSO | 3.25 | 3.20 | 1.42 | +0.05 [-0.40, +0.67] | no |
+| Jev, LOSO | 3.59 | 3.51 | 1.64 | +0.08 [-0.40, +0.41] | no |
+| Jev, LOSO, max level probability | 3.59 | 3.53 | 1.64 | +0.06 [-0.44, +0.40] | no |
+
+By the pre-declared rule (lower end of the interval above zero) **no confidence signal is
+informative.** Deferring by confidence closes only about 3-8% of the gap between random and
+ideal ordering (usefulness / (overall MAE - oracle AURC): baseline LOUO 5%, Jev LOUO 8%,
+baseline LOSO 3%, Jev LOSO 4%). In the baseline's LOUO curve the single most confident trial
+is 10 GRS points off. Coverage table (MAE / improvement over the mean-only reference on the
+trials KEPT, pooled): baseline LOUO 4.31 / +0.46 (100%), 4.50 / +0.23 (80%), 4.37 / +0.34
+(60%), 4.15 / +0.39 (40%): flat. Jev LOUO 4.05 / +0.72, 4.27 / +0.55, 4.22 / +0.71,
+3.76 / +1.11: a rise only at 40% coverage (41 trials), which no interval supports and which
+the usefulness test does not find. LOSO: baseline 3.25 / +1.17, 3.07 / +1.36, 3.28 / +1.32,
+3.09 / +1.51; Jev 3.59 / +0.84, 3.84 / +0.60, 3.82 / +0.70, 3.40 / +1.16.
+
+**Read the upper ends of those intervals too.** With 8 surgeons the study cannot exclude a
+modest benefit: the upper ends are +0.92 and +0.61 GRS points (LOUO), up to about a fifth of
+the overall error. "No evidence" is not "proved useless"; it is an under-powered null.
+
+**A. Agreement (per task; GRS points; ICC = ICC(2,1)).** LOUO, new surgeon:
+
+| task | path | Spearman | ICC(2,1) [95%, indicative] | MAE | limits of agreement |
+|---|---|---|---|---|---|
+| Suturing | baseline | +0.21 | +0.20 [-0.13, +0.48] | 4.56 | -10.9 to +12.0 |
+| Suturing | Jev | +0.13 | +0.06 [-0.26, +0.37] | 4.77 | -11.4 to +11.0 |
+| Suturing | mean-only | -0.78 | -0.19 [-0.49, +0.14] | 4.71 | -11.6 to +11.6 |
+| Knot-Tying | baseline | +0.64 | +0.60 [+0.35, +0.78] | 3.56 | -8.7 to +8.0 |
+| Knot-Tying | Jev | +0.72 | **+0.73 [+0.53, +0.85]** | 2.80 | -6.7 to +6.6 |
+| Knot-Tying | mean-only | -0.86 | -0.23 [-0.53, +0.12] | 5.10 | -11.2 to +11.1 |
+| Needle-Passing | baseline | -0.13 | +0.00 [-0.38, +0.38] | 4.91 | -11.6 to +12.2 |
+| Needle-Passing | Jev | -0.17 | -0.13 [-0.49, +0.26] | 4.65 | -10.7 to +10.5 |
+| Needle-Passing | mean-only | -0.79 | -0.20 [-0.55, +0.19] | 4.41 | -10.3 to +10.5 |
+
+LOSO (baseline / Jev): ICC Suturing 0.51 / 0.31, Knot-Tying 0.65 / 0.77, Needle-Passing
+0.43 / 0.03. Only Knot-Tying shows agreement of any size on new surgeons, and there Jev's
+error spread is the narrowest (SD about 3.4 GRS points, against a GRS SD of 5.1).
+**Read the Spearman column with care:** it is the pooled out-of-fold correlation of
+calibrated predictions, so it carries the same cross-validation bias as the baseline's
+(the mean-only row shows -0.78 to -0.86). Jev's RAW score, which has no fold dependence, correlates
++0.45 / +0.78 / +0.32 with GRS (Phase 4), higher than the +0.13 / +0.72 / -0.17 here.
+
+**Human ceiling, context only.** Martin et al. 1997 (verified from the abstract): "Mean
+interrater reliability across stations ranged from 0.64 to 0.72". Jev's Knot-Tying LOUO ICC
+(0.73, interval 0.53-0.85) sits at the top of that range, but the coefficient in that abstract
+is not named, the setting was live-animal and bench stations for 20 residents, and this is one
+task of three. **No claim is made that any method reaches the human ceiling.** PLAN.md's
+"about 0.71-0.79 for trained raters" remains UNVERIFIED (TODO(verify)).
+
+**Bland-Altman (LOUO).** Bias is near zero everywhere (-0.4 to +0.5 GRS points) but every
+panel slopes downward: prediction minus truth falls as GRS rises, so weak performances are
+over-predicted and strong ones under-predicted. Caution: with the mean of prediction and truth
+on the x-axis, the slope is partly built in for any weak predictor (a constant predictor
+has slope exactly -2), so it shows that predictions are weakly related to the truth; it is
+not a separate finding.
+
+**Limits to carry into the paper.** 8 surgeons (7 in Needle-Passing), so every interval is
+crude and none reflects refitting; pooled analyses treat one surgeon's trials across the three
+tasks as a cluster; calibration truths differ between the paths; Jev's calibration was judged
+raw and includes a scale offset; the baseline's "confidence" for selective prediction is a
+different model's (the classifier's) probability, declared in advance; Jev sees the same
+measures as the baseline and its score largely tracks task time (Phase 4); ICC and
+Spearman on out-of-fold predictions carry the fold-mean bias.
+
 Not run: a full-file sensitivity analysis.Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
