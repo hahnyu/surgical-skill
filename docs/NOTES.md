@@ -860,5 +860,74 @@ re-explained them in plain terms. Made AFTER seeing the results, and logged as s
    (a weak model can be miscalibrated, and confidence can still rank trials), but it
    must be described as such.
 
+## Phase 3, second config (v2) and the feature-free reference (2026-09-20)
+
+v2 run at commit `ee96645` (regression only, primary + raw + 8 Hz, plus the sentinel).
+Reported ALONGSIDE the original, never instead. The feature-free reference was added
+afterwards (post-hoc, `src/diagnostics.py C`, commit-clean run); its log rows appear
+twice (first Spearman only, then Spearman and MAE): use the later ones.
+
+**The wider grid did not help.** Three of six primary cells are IDENTICAL to the
+original (Suturing LOSO 0.66, Knot-Tying LOSO 0.79, Knot-Tying LOUO 0.64; alpha = 100
+chosen exactly as before), so alpha = 100 was a true optimum there and the
+"edge of the grid" worry was unfounded for them. In the other three the search chose
+alpha = 10000 and the correlations FELL: Needle-Passing LOSO +0.46 -> +0.00,
+Needle-Passing LOUO -0.13 -> -0.44, Suturing LOUO +0.21 -> -0.04. The new maximum
+(10000) was chosen in 9 of 38 primary folds (Needle-Passing LOSO 3/5, Needle-Passing
+LOUO 5/7, Suturing LOUO 1/8). **Rule declared beforehand: this was the last
+extension; the grid is not widened again.**
+
+Leakage sentinel, one-sided: **PASS in all 6 cells** (means -0.16 to -0.26; the
+feature-free null is -0.28 to -0.43). The means are more negative than under the
+original grid because heavier shrinkage moves the model toward the feature-free
+predictor.
+
+**Feature-free reference: what the numbers actually mean.** Predict every held-out
+trial with the mean GRS of its fold's training trials, on the REAL labels:
+
+| scheme | task | rho: feature-free / v1 / v2 | MAE (GRS points): feature-free / v1 / v2 |
+|---|---|---|---|
+| LOSO | Suturing | -0.18 / +0.66 / +0.66 | 4.35 / 3.20 / 3.20 |
+| LOSO | Knot-Tying | -0.16 / +0.79 / +0.79 | 4.66 / 2.88 / 2.88 |
+| LOSO | Needle-Passing | -0.41 / +0.46 / +0.00 | 4.22 / 3.79 / 4.29 |
+| LOUO | Suturing | -0.78 / +0.21 / -0.04 | 4.71 / 4.56 / 5.09 |
+| LOUO | Knot-Tying | -0.86 / +0.64 / +0.64 | 5.10 / 3.56 / 3.56 |
+| LOUO | Needle-Passing | -0.79 / -0.13 / -0.44 | 4.41 / 4.91 / 4.50 |
+
+1. **Pooled Spearman is dominated by an artifact under LOUO.** A predictor that
+   knows nothing scores -0.78 to -0.86. Mechanism: each LOUO fold is one surgeon and
+   the prediction is one constant per fold; surgeons differ a lot in mean GRS, and a
+   surgeon with a high mean gets a LOWER training mean, so prediction and truth move
+   oppositely across folds. A model's LOUO rho therefore cannot be read against zero;
+   e.g. Knot-Tying's +0.64 is against a null of -0.86. This is a flaw in the
+   pre-declared headline statistic (pooled out-of-fold rho), found after the fact.
+   It stays reported, but never without the reference.
+2. **MAE has no such artifact, and says:** a model has learned something only if its
+   MAE is below the feature-free MAE.
+   - LOSO: clear gains in Suturing (3.20 vs 4.35) and Knot-Tying (2.88 vs 4.66);
+     small in Needle-Passing under v1 (3.79 vs 4.22) and none under v2 (4.29).
+   - **LOUO: only Knot-Tying shows a real gain over predicting the mean (3.56 vs
+     5.10, about 30% lower).** Suturing is essentially no better (v1 4.56 vs 4.71)
+     or worse (v2 5.09); Needle-Passing is no better (v1 4.91, v2 4.50 vs 4.41).
+   Consistent with Phase 2, where task time was strongest in Knot-Tying (rho -0.79).
+3. In Needle-Passing the inner search chose maximum shrinkage (alpha = 10000), i.e.
+   it turned the model into the feature-free predictor. That is the search reporting
+   "nothing here generalises across surgeons".
+4. **Design tension, recorded not fixed:** alpha is chosen by mean squared error but
+   the headline was a rank correlation. Heavy shrinkage minimises squared error yet
+   produces near-constant predictions that score badly on rank correlation by
+   construction. Changing the inner criterion would be a new decision.
+
+**What this does to the conclusions.** The LOSO results are real improvements over
+the mean but partly reflect surgeon recognition (83-93% surgeon-ID accuracy). The
+honest cross-surgeon result is: a signal in Knot-Tying, and none demonstrable in
+Suturing or Needle-Passing. No confidence interval was computed on the MAE
+differences; with 7-8 surgeons they would be wide, and the Knot-Tying gain should be
+described as a point estimate until one is.
+
+**Recommendation awaiting the user (a new decision):** report LOUO as the headline
+in terms of MAE relative to the feature-free reference, with pooled rho shown beside
+the reference, and add a surgeon-bootstrap interval on the MAE difference.
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
