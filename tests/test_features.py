@@ -8,6 +8,8 @@ obviously broken -- these tests are what makes it visible.
 import numpy as np
 import pytest
 
+import loaders
+
 from features import (
     acceleration,
     acceleration_features,
@@ -21,6 +23,7 @@ from features import (
     step_lengths,
     task_time,
     bimanual_coordination,
+    build_feature_matrix,
     smoothness,
     sparc,
     working_volume,
@@ -395,3 +398,72 @@ def test_config_holds_the_gripper_band():
     cfg = load_feature_config()
     assert cfg["gripper_low_threshold"] == -0.6
     assert cfg["gripper_high_threshold"] == -0.1
+
+
+# --- the assembled feature matrix -----------------------------------------
+
+
+@pytest.fixture(scope="module")
+def matrix():
+    return build_feature_matrix()
+
+
+def test_feature_matrix_shape_and_index(matrix):
+    assert matrix.shape == (103, 24)
+    assert matrix.index.is_unique
+    assert set(matrix.index) == set(loaders.load_all_meta()["trial"])
+
+
+def test_feature_matrix_has_no_missing_or_infinite_values(matrix):
+    assert np.isfinite(matrix.to_numpy(dtype=float)).all()
+
+
+def test_feature_matrix_holds_only_features_not_identifiers_or_labels(matrix):
+    """A model must not be able to see subject, task, repetition or a label.
+    Subject identity is the main threat to validity (CLAUDE.md)."""
+    forbidden = {"task", "subject", "repetition", "skill", "grs", "trial"}
+    assert not forbidden & set(matrix.columns)
+    assert not any(c in matrix.columns for c in loaders.OSATS_ELEMENTS)
+
+
+def test_feature_matrix_is_reproducible(matrix):
+    again = build_feature_matrix()
+    assert matrix.equals(again)
+
+
+@pytest.mark.parametrize("trial", ["Suturing_B001", "Knot_Tying_D003", "Needle_Passing_B001"])
+@pytest.mark.parametrize("arm, pos_cols, grip_col", [("PSM1", slice(38, 41), 56), ("PSM2", slice(57, 60), 75)])
+def test_matrix_agrees_with_an_independent_read_of_the_raw_file(matrix, trial, arm, pos_cols, grip_col):
+    """The load-bearing check on column indexing and windowing.
+
+    Recompute path length, task time and the gripper range straight from the raw
+    file with np.loadtxt and BARE numeric column indices taken from the readme
+    (PSM1 position = columns 39-41 => Python 38:41; PSM2 = 58-60 => 57:60;
+    gripper = 57 and 76 => 56 and 75). None of the named-column machinery in
+    loaders.py is used. If that machinery had an off-by-one, everything else
+    would agree with itself and still be wrong; this would not.
+    """
+    task = loaders.task_of(trial)
+    raw = np.loadtxt(loaders.DATA_DIR / task / "kinematics" / "AllGestures" / f"{trial}.txt")
+    assert raw.shape[1] == 76
+
+    starts, ends = [], []
+    for line in (loaders.DATA_DIR / task / "transcriptions" / f"{trial}.txt").read_text().split("\n"):
+        parts = line.split()
+        if len(parts) >= 3:
+            starts.append(int(parts[0]))
+            ends.append(int(parts[1]))
+    window = raw[min(starts) - 1: max(ends)]
+
+    positions = window[:, pos_cols]
+    expected_path = np.linalg.norm(np.diff(positions, axis=0), axis=1).sum()
+    assert matrix.loc[trial, f"{arm}_path_length"] == pytest.approx(expected_path)
+    assert matrix.loc[trial, "task_time_s"] == pytest.approx(len(window) / 30)
+
+    # Gripper: the raw column must match what the loader called <arm>_grip.
+    grip = loaders.load_kinematics(trial, windowed=True)[f"{arm}_grip"].to_numpy()
+    assert np.array_equal(grip, window[:, grip_col])
+
+    # Speed mean recomputed from raw positions.
+    expected_speed = np.linalg.norm(np.diff(positions, axis=0), axis=1).mean() * 30
+    assert matrix.loc[trial, f"{arm}_speed_mean"] == pytest.approx(expected_speed)

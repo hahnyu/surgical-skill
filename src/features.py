@@ -13,10 +13,11 @@ are consistent with meters but that is not a source.
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import yaml
 from scipy.spatial import ConvexHull, QhullError
 
-from loaders import FPS  # kinematics sampling rate, 30 Hz
+from loaders import FPS, load_all_meta, load_kinematics  # FPS: 30 Hz
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "configs" / "features.yaml"
 
@@ -255,3 +256,82 @@ def gripper_cycles(angles: np.ndarray, low: float, high: float) -> int:
             transitions += 1
         state = new_state
     return transitions // 2
+
+
+ARMS = ["PSM1", "PSM2"]
+
+
+def arm_columns(arm: str, suffixes) -> list:
+    """['PSM1_x', 'PSM1_y', 'PSM1_z'] from arm='PSM1', suffixes='xyz'."""
+    return [f"{arm}_{s}" for s in suffixes]
+
+
+def trial_features(trial: str, cfg: dict) -> dict:
+    """Every feature for one trial, as {feature name: value}.
+
+    Uses the annotated task window (decision 2026-09-19). Arm-level features are
+    computed for each instrument separately and prefixed with the arm name;
+    task time and bimanual coordination describe the trial as a whole.
+    """
+    kin = load_kinematics(trial, windowed=True)
+    positions = {arm: kin[arm_columns(arm, "xyz")].to_numpy() for arm in ARMS}
+
+    sparc_settings = dict(
+        cutoff_hz=cfg["sparc_cutoff_hz"],
+        amp_threshold=cfg["sparc_amp_threshold"],
+        padlevel=cfg["sparc_padlevel"],
+    )
+
+    out = {"task_time_s": task_time(len(kin))}
+    for arm in ARMS:
+        pos = positions[arm]
+        feats = {
+            "path_length": path_length(pos),
+            **speed_features(pos),
+            **acceleration_features(pos),
+            "idle_fraction": idle_fraction(pos, cfg["moving_speed_threshold"]),
+            "n_movements": count_movements(
+                pos, cfg["moving_speed_threshold"], cfg["min_movement_duration_s"]
+            ),
+            "sparc": smoothness(pos, **sparc_settings),
+            "working_volume": working_volume(pos),
+            "gripper_cycles": gripper_cycles(
+                kin[f"{arm}_grip"].to_numpy(),
+                cfg["gripper_low_threshold"],
+                cfg["gripper_high_threshold"],
+            ),
+        }
+        out.update({f"{arm}_{name}": value for name, value in feats.items()})
+
+    out["bimanual_speed_corr"] = bimanual_coordination(positions["PSM1"], positions["PSM2"])
+    return out
+
+
+def build_feature_matrix(cfg: dict = None) -> pd.DataFrame:
+    """The Phase 2 deliverable: one row per trial, one column per feature.
+
+    Indexed by trial name and holding ONLY features. Subject, task, repetition
+    and every label are deliberately left out, so a model cannot see them by
+    accident; join them on from loaders.load_all_meta() when needed.
+
+    Raises if any value is NaN or infinite, or if a trial is missing.
+    """
+    cfg = cfg or load_feature_config()
+    trials = load_all_meta()["trial"].tolist()
+    matrix = pd.DataFrame([trial_features(t, cfg) for t in trials], index=trials)
+    matrix.index.name = "trial"
+
+    if len(matrix) != 103:
+        raise ValueError(f"expected 103 trials, got {len(matrix)}")
+    bad = matrix.columns[~np.isfinite(matrix.to_numpy(dtype=float)).all(axis=0)].tolist()
+    if bad:
+        raise ValueError(f"NaN or infinite values in feature columns: {bad}")
+    return matrix
+
+
+if __name__ == "__main__":
+    # Regenerate the feature matrix:  uv run python src/features.py
+    out = Path(__file__).resolve().parent.parent / "results" / "features.csv"
+    matrix = build_feature_matrix()
+    matrix.to_csv(out)
+    print(f"wrote {matrix.shape[0]} trials x {matrix.shape[1]} features to {out}")

@@ -350,5 +350,61 @@ after seeing one trial is tuning. Options if it matters: a per-trial band (cut
 relative to each trial's own range, at the cost of erasing range as a possible
 skill signal), or leave it and report the failure. One trial of 206.
 
+### Feature matrix built (2026-09-20) — 103 x 24, with current choices
+
+`build_feature_matrix()` in `src/features.py`; regenerate with
+`uv run python src/features.py`, which writes `results/features.csv`. That file
+is **gitignored**: it is fully regenerable and derived from JIGSAWS, which we do
+not redistribute. Rows are indexed by trial; columns are **features only** --
+subject, task, repetition, skill and every label are deliberately excluded so a
+model cannot see them (a test enforces this). 24 columns: `task_time_s`,
+`bimanual_speed_corr`, and 11 features per arm (path length, speed mean/std/max,
+acceleration mean/max, idle fraction, movement count, SPARC, hull volume,
+gripper cycles). No NaN or infinite values; a check raises if any appear.
+
+Verification beyond self-consistency: a test recomputes path length, task time,
+mean speed and the gripper column for three trials (one per task), both arms,
+straight from the raw file with `np.loadtxt` and BARE numeric column indices from
+the readme (PSM1 position = Python 38:41, PSM2 = 57:60, grips = 56 and 75) --
+none of the named-column machinery -- and it agrees. That checks the column
+indexing independently, which agreeing-with-itself tests cannot.
+
+Feature redundancy (label-free): 7 pairs at |Spearman| >= 0.9, e.g.
+`PSM1_speed_mean ~ PSM1_accel_mean` (+0.98), `PSM2_speed_max ~ PSM2_accel_max`
+(+0.96), `task_time_s ~ PSM1_n_movements` (+0.94). Expect a regression to split
+credit among these.
+
+**DATA-QUALITY FINDING -- position discontinuities.** `speed_max` reaches
+0.73 m/s (PSM1) and 0.81 m/s (PSM2) against medians near 0.1, and `accel_max`
+reaches 21-23 m/s^2. In a workspace a few centimetres wide that implies a tool
+moving centimetres in one 1/30 s frame. The largest single-frame steps:
+26.9 mm (`Suturing_I004` PSM2), 24.4 mm (`Suturing_D001` PSM1), 16.1 mm
+(`Needle_Passing_H002` PSM1), against a typical step of ~0.2 mm. 47 of 206
+arm-trials have a step > 5 mm, 7 have > 10 mm, 2 have > 20 mm.
+
+Pattern: in `Suturing_I004` (step 2042) and `Suturing_D001` (step 739) **both
+arms jump at the same frame**, by different amounts, and the position does not
+return -- it settles at the new value (I004 PSM2 goes from (94, 55, -71) mm to
+(89, 34, -55) mm). A simultaneous, sustained jump on both instruments points to a
+shared cause, not one arm moving quickly. Two explanations, NEITHER verified:
+the endoscope/camera moved (shifting the frame the positions are expressed in),
+or frames were dropped from the log so the motion between two distant frames
+appears as one step. Either way it is not real single-frame motion.
+
+Effect: `speed_max` and `accel_max` are corrupted by these; do not trust them as
+skill features as they stand. Path length is affected by at most ~1-2% in the
+worst cases (the jump is 0.6-2.1% of a trial's total path). Working volume is
+affected less than feared: I004 PSM2's hull is 181 cm^3 before the jump and
+204 cm^3 with it (+13%); D001 PSM1 goes 10.8 -> 24.8 cm^3 but is mid-pack
+overall. The largest hulls (`Suturing_C003/C004/C005` PSM2, 175-309 cm^3) are
+NOT explained by these jumps. SPARC and gripper cycles were not examined for
+this.
+
+Not fixed. Any fix needs a rule (a step threshold, or detecting simultaneous
+jumps on both arms) and a decision about what to do with the frames (drop,
+interpolate, split the trial into segments), and any such rule is another
+pre-declared choice. Decide it before Phase 3, and not by which version scores
+best against GRS.
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
