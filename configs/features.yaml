@@ -18,9 +18,12 @@ min_movement_duration_s: 0.2
 idle_threshold_grid: [0.0005, 0.001, 0.002]
 
 # Spectral arc length (SPARC) smoothness, applied to the whole windowed trial's
-# speed profile. Settings are the published defaults as remembered from the
-# original paper's reference implementation (Balasubramanian et al. 2015).
-# TODO(verify): confirm these three values against the paper before the write-up.
+# speed profile. These are the default settings in the authors' reference
+# implementation (github.com/siva82kb/SPARC, scripts/smoothness.py:
+# sparc(movement, fs, padlevel=4, fc=10.0, amp_th=0.05)), verified 2026-09-20.
+# TODO(verify): the paper citation itself (that file's docstring cites none).
+# NOTE: SPARC is DROPPED from the primary feature set (decision 2026-09-20); see
+# docs/NOTES.md. These settings are kept for a later per-movement revisit.
 sparc_cutoff_hz: 10.0        # ignore spectrum above this frequency
 sparc_amp_threshold: 0.05    # trim the spectrum's tail below this fraction of its peak
 sparc_padlevel: 4            # zero-pad the FFT to 2**(ceil(log2 n) + this) points

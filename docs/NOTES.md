@@ -406,5 +406,41 @@ interpolate, split the trial into segments), and any such rule is another
 pre-declared choice. Decide it before Phase 3, and not by which version scores
 best against GRS.
 
+### Five data-quality decisions ACCEPTED (2026-09-20) -- rebuild pending
+
+Made together, after label-free diagnostics, on validity and not on
+performance. No labels were used. The bundle:
+
+1. **Position jumps: drop `speed_max` and `accel_max`** (PSM1 and PSM2). They are
+   what the jumps corrupt and they are redundant with each other (0.93-0.96). No
+   repair rule, because the cause is unknown. Path length and volume stay, with
+   the caveat recorded above.
+   CORRECTION to the earlier entry: the "camera moved" explanation is NOT
+   supported for the largest jumps. Only 8 trials have a simultaneous jump on
+   both arms. In the three largest (`Suturing_D001`, `Needle_Passing_H002`,
+   `Suturing_I004`) the tip-to-tip distance changes by 2.0-2.9x the smaller arm's
+   step, so the scene did not shift as one rigid block. The three smaller events
+   (ratios ~0.1-0.4) do look rigid. Cause is mixed and remains unverified.
+2. **SPARC: dropped from the primary feature set.** Whole-trial SPARC correlates
+   -0.83 with movement count and fails the "measures smoothness" test.
+   Per-movement SPARC is not viable while movements are chatter (see 3). Code and
+   config kept for a revisit. This is a deviation from PLAN.md, which lists
+   smoothness as a feature. The plan's smoothness item is therefore unmet;
+   PLAN.md's acceptance ("no NaNs, >= 3 separating features") does not depend on it.
+3. **Smoothing: smooth positions ONCE, before every derived feature, with the raw
+   pipeline kept as the sensitivity analysis.** Evidence: **40% of counted
+   movements (3570 of 8888) are followed within 2 frames (<= 0.067 s) by another
+   counted movement**, so raw speed chatters across the threshold and raw movement
+   counts are inflated by noise. Cutoff and filter: see the entry below once chosen.
+4. **Movement count: per-minute.** Raw count vs task time: Spearman +0.94 (PSM1),
+   +0.91 (PSM2). Per-minute: +0.57 and -0.02. Removes the duplicate of task time.
+5. **Gripper: accept the `Suturing_G002` PSM2 failure and report it.** 1 of 206
+   arm-trials; a per-trial band would be a rule chosen after seeing that trial and
+   would erase gripper range as a possible skill signal.
+
+SPARC settings verified against the authors' reference implementation
+(`sparc(movement, fs, padlevel=4, fc=10.0, amp_th=0.05)`, github.com/siva82kb/SPARC),
+closing that TODO(verify) for the VALUES. The paper citation is still TODO(verify).
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
