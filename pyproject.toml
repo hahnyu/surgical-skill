@@ -1,0 +1,15 @@
+[project]
+name = "surgical-skill"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "jupyterlab>=4.6.3",
+    "matplotlib>=3.11.2",
+    "netcal>=1.4.0",
+    "numpy>=2.5.3",
+    "pandas>=3.0.6",
+    "pingouin>=0.6.1",
+    "pytest>=9.1.1",
+    "scikit-learn>=1.9.1",
+    "scipy>=1.18.1",
+]
