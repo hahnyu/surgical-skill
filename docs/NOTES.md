@@ -995,7 +995,8 @@ a stronger one (e.g. a per-task median or a task-time-only model) would be a har
 bar and has not been run. The improvement of about 1.5 points is against a scale of
 6-30 with a per-task GRS standard deviation of 4.8-5.4 points (Suturing 5.40,
 Knot-Tying 5.11, Needle-Passing 4.82), so it is modest in absolute terms even where
-it is credible: about a fifth to a third of a standard deviation.
+it is credible: 0.23 to 0.33 of a standard deviation for Knot-Tying (1.18 and 1.69
+divided by 5.11), i.e. about a quarter to a third.
 
 Not run: a full-file sensitivity analysis.Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
