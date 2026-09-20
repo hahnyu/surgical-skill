@@ -5,3 +5,5 @@ __pycache__/
 results/jev_raw/
 .DS_Store
 results/features*.csv
+results/figures/
+results/feature_grs_spearman.csv
