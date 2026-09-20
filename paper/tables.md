@@ -52,11 +52,11 @@ The reference predicts each held-out trial with the mean GRS of its own training
 
 | path | scheme | judged against | mean confidence | accuracy | ECE [95%] | MCE | Brier | constant Brier | Brier skill [95%] |
 |---|---|---|---|---|---|---|---|---|---|
-| baseline | LOUO | self-declared skill (N/I/E) | nan | 0.379 | 0.377 [0.237, 0.541] | 0.53 | 0.875 | 0.647 | -0.351 [-0.688, -0.092] |
-| baseline | LOSO | self-declared skill (N/I/E) | nan | 0.942 | 0.105 [0.057, 0.154] | 0.37 | 0.143 | 0.647 | 0.778 [0.698, 0.856] |
-| jev | both | level implied by GRS | nan | 0.301 | 0.395 [0.317, 0.494] | 0.55 | 1.021 | 0.713 | -0.433 [-0.588, -0.242] |
+| baseline | LOUO | self-declared skill (N/I/E) | 0.755 | 0.379 | 0.377 [0.237, 0.541] | 0.53 | 0.875 | 0.647 | -0.351 [-0.688, -0.092] |
+| baseline | LOSO | self-declared skill (N/I/E) | 0.837 | 0.942 | 0.105 [0.057, 0.154] | 0.37 | 0.143 | 0.647 | 0.778 [0.698, 0.856] |
+| jev | both | level implied by GRS | 0.696 | 0.301 | 0.395 [0.317, 0.494] | 0.55 | 1.021 | 0.713 | -0.433 [-0.588, -0.242] |
 
-Each path is judged against the target it was given, so the rows are not a head-to-head comparison. The constant forecast assigns every trial the observed class frequencies; a negative Brier skill score means the path is worse than that constant. Five equal-width bins, 103 pooled trials. Jev is never trained, so it has a single row. Per-bin counts are logged as `addendum_reliability_bin`.
+Each path is judged against the target it was given, so the rows are not a head-to-head comparison. The constant forecast assigns every trial the observed class frequencies; a negative Brier skill score means the path is worse than that constant. Five equal-width bins, 103 pooled trials. Jev is never trained, so it has a single row. Per-bin counts are logged as `addendum_reliability_bin`; mean confidence is taken from `addendum_mean_confidence`, which postdates the calibration run.
 
 ### Table 5. Selective prediction
 

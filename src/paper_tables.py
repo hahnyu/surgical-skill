@@ -100,6 +100,15 @@ def table3(log) -> str:
 
 def table4(log) -> str:
     cal = log[log["kind"] == "eval_calibration"]
+    # The eval_calibration rows predate the mean_confidence field, so take it from the
+    # addendum rows, which cover the same three path/scheme combinations.
+    conf_rows = log[log["kind"] == "addendum_mean_confidence"]
+    confidence = {("baseline", "LOUO"): None, ("baseline", "LOSO"): None, ("jev", "both"): None}
+    for r in conf_rows.itertuples():
+        key = ("jev", "both") if r.model.startswith("jev") else ("baseline", r.cv_scheme)
+        confidence[key] = r.mean_confidence
+    if any(v is None for v in confidence.values()):
+        raise ValueError(f"no logged mean confidence for {[k for k, v in confidence.items() if v is None]}")
     lines = ["### Table 4. Calibration",
              "",
              "| path | scheme | judged against | mean confidence | accuracy | ECE [95%] | MCE | Brier | constant Brier | Brier skill [95%] |",
@@ -107,14 +116,15 @@ def table4(log) -> str:
     against = {"baseline": "self-declared skill (N/I/E)", "jev": "level implied by GRS"}
     for r in cal.itertuples():
         row = r._asdict()
-        lines.append(f"| {r.model} | {r.cv_scheme} | {against[r.model]} | {r.mean_confidence:.3f} | "
+        lines.append(f"| {r.model} | {r.cv_scheme} | {against[r.model]} | {confidence[(r.model, r.cv_scheme)]:.3f} | "
                      f"{r.accuracy:.3f} | {ci(row, 'ece', 3)} | {r.mce:.2f} | {r.brier:.3f} | "
                      f"{r.brier_reference:.3f} | {ci(row, 'brier_skill', 3)} |")
     lines += ["",
               "Each path is judged against the target it was given, so the rows are not a head-to-head comparison. "
               "The constant forecast assigns every trial the observed class frequencies; a negative Brier skill "
               "score means the path is worse than that constant. Five equal-width bins, 103 pooled trials. Jev is "
-              "never trained, so it has a single row. Per-bin counts are logged as `addendum_reliability_bin`."]
+              "never trained, so it has a single row. Per-bin counts are logged as `addendum_reliability_bin`; "
+              "mean confidence is taken from `addendum_mean_confidence`, which postdates the calibration run."]
     return "\n".join(lines)
 
 
