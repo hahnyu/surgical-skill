@@ -1078,5 +1078,85 @@ not the dataset (no video, no trajectories, no identifiers, no labels, no number
 6. Jev's `confidence` and level probabilities are logged for Phase 5.
 7. Element-level agreement with the six OSATS columns: exploratory, order unverified.
 
+## Phase 4 results: Jev (2026-09-20)
+
+Collection: 309 requests (103 trials x 3 runs), 0 failures, model `jev-1.13.0` on every
+record (checked), one prompt (v1, hash `7b6e1571ade2f745`), 518,172 input tokens in
+total (about 2 cents at the documented rate). Raw JSON in `results/jev_raw/` (gitignored),
+each with the exact state sent. Analysis (`src/jev_analysis.py`) run from a clean tree
+after being committed, in the pre-declared order; rows in `experiments.csv`
+(`jev_rank_agreement`, `jev_headline_mae_vs_reference`, and post-hoc
+`posthoc_time_only_headline`).
+
+**1. Repeatability: near-deterministic, not exactly.** `overall_skill` between two asks
+of the identical request: Spearman 0.999 in all three run pairs; mean absolute score
+difference 0.022-0.024 on a 0-4 scale (max 0.14); only 19-21% of trials give bit-identical
+scores. The same holds for all seven questions (mean difference 0.02-0.04). So a single
+call is reproducible to about 0.02 of a level, and the mean of three runs changes nothing
+material (see below). The docs do not promise determinism; this is the empirical answer.
+
+**2. Rank agreement with GRS, `overall_skill` run 0 (Spearman, 95% surgeon-bootstrap):**
+Suturing +0.45 [+0.03, +0.79]; Knot-Tying +0.78 [+0.53, +0.89]; Needle-Passing +0.32
+[-0.05, +0.75]. All in the right direction. Jev is never trained, so these correlations
+have none of the bias that pulls the baseline's pooled LOUO rho toward -0.8; the two are
+NOT comparable as raw correlations. Sensitivities: mean of 3 runs +0.46 / +0.78 / +0.31
+(same); mean of the six element scores +0.26 / +0.59 / +0.31 (worse than `overall_skill`).
+
+**3. Headline yardstick: MAE improvement over predicting the mean (GRS points, 95%
+surgeon-bootstrap; rule: lower end above zero).** Primary predictor, LOUO:
+
+| task | Jev improvement | beats? | baseline ridge v1, for comparison |
+|---|---|---|---|
+| Suturing | -0.05 [-1.05, +0.96] | no | +0.15 [-1.04, +1.33] |
+| Knot-Tying | **+2.30 [+1.14, +3.45]** | **YES** | +1.54 [+0.65, +2.52] |
+| Needle-Passing | -0.24 [-0.79, +0.31] | no | -0.50 [-1.21, -0.04] |
+
+LOSO: Suturing +0.33 [-0.70, +1.51] no; Knot-Tying +2.08 [+1.07, +3.09] YES;
+Needle-Passing -0.05 [-0.51, +0.53] no. Mean-of-3-runs is identical to within 0.01. The
+mean of the six element scores is weaker (Knot-Tying LOUO +0.97 [-0.43, +2.26], does not
+beat the mean). Only Knot-Tying works, the same pattern as the baseline.
+
+**4. Direction guard: PASSED.** The fitted slope was positive in all 38 folds for the
+primary predictor (all 114 across the three predictors), mean about +2.4 / +3.7 / +1.6 GRS
+points per score level in Suturing / Knot-Tying / Needle-Passing under LOUO. Jev ranks skill
+in the right direction everywhere; nothing was hidden by the calibration line.
+(Read the guard only for Jev's score, where higher should mean more skilled. For the
+task-time reference below, negative slopes are the CORRECT direction: more time, lower GRS.)
+
+**Element-level, exploratory (element order rests on the dataset readme's word).**
+Spearman of each element score with its OSATS column, Suturing / Knot-Tying /
+Needle-Passing: respect for tissue -0.03 / -0.47 / +0.30; suture-needle handling +0.17 /
++0.70 / +0.43; time and motion +0.50 / +0.71 / +0.22; flow +0.37 / +0.63 / +0.15; overall
+performance +0.40 / +0.70 / +0.38; quality of final product -0.09 / -0.10 / +0.19. The two
+elements motion cannot show (tissue, final product) are near zero or, for tissue in
+Knot-Tying, clearly negative, as expected of a question with nothing to go on.
+
+**MAIN FINDING (post-hoc, `src/jev_analysis.py posthoc`, no labels used in part A): Jev's
+score is largely task time.** Spearman of Jev's `overall_skill` with `task_time_s`:
+-0.91 (Suturing), -0.81 (Knot-Tying), -0.86 (Needle-Passing); the next-strongest features
+are far weaker (about 0.4-0.7). A one-feature straight line on task time alone, same folds
+and yardstick, gives LOUO improvements of Suturing +0.10 [-0.72, +0.83], **Knot-Tying
++1.88 [+0.94, +2.89]**, Needle-Passing -0.29 [-0.88, +0.11] (LOSO +0.34 / +1.82 / -0.18):
+the same pattern, and within the interval of Jev's. In Knot-Tying the one-feature line
+(+1.88) even exceeds the 16-feature ridge (+1.54). So, on this evidence, the 16-feature
+ridge, Jev, and a task-time line all reduce to "shorter task time, higher GRS", which
+carries a cross-surgeon signal in Knot-Tying only. Jev does not demonstrably add anything
+beyond task time; its Knot-Tying point estimate is higher (+2.30 vs +1.88) but the
+intervals overlap heavily.
+
+**Caveats, all to carry into the paper.**
+- Jev sees the same 16 measures in words, so agreement with the baseline is expected and
+  is not independent evidence of skill.
+- Contamination: the level wording (written AFTER Phase 2/3 were seen) leans on completion
+  time and pauses, and task time was already Knot-Tying's strongest signal. This was
+  disclosed in advance; it now looks like a plausible reason Jev tracks task time so closely.
+  It is not proven to be the cause.
+- Positive for Jev: it was never trained, and with only a two-number calibration line it
+  matches fitted models, which suggests a language model can read a sensible ordering from
+  phrases alone. But a task-time regression also gets there with no language model.
+- Percentile bands use the task's own trials (label-free, transductive, includes the trial).
+- Jev's confidence and probabilities are in the cached responses for Phase 5; not yet analysed.
+- Prompt v1 stays as is. Any change is a new version reported alongside.
+
 Not run: a full-file sensitivity analysis.Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
