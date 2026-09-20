@@ -929,5 +929,22 @@ described as a point estimate until one is.
 in terms of MAE relative to the feature-free reference, with pooled rho shown beside
 the reference, and add a surgeon-bootstrap interval on the MAE difference.
 
-Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
+### Headline metric: decided, rule fixed before the intervals exist (2026-09-20)
+
+The user accepted the recommendation. **The paper's headline is LOUO, reported as
+the model's MAE against the feature-free reference (predict each held-out trial
+with the training-fold mean GRS), as an improvement in GRS points with a 95%
+surgeon-bootstrap interval. Pooled Spearman is reported beside its own reference,
+never alone.** LOSO is reported alongside. Implemented in `src/report.py`;
+statistic in `metrics.mae_improvement`.
+
+**Interpretation rule, fixed BEFORE the intervals were computed:** a model beats the
+reference across new surgeons only if the LOWER end of its 95% interval for the MAE
+improvement is above zero. With 7-8 surgeons that interval is crude, so "excludes
+zero" is suggestive and not proof; nothing is selected by it. The interval holds both
+sets of predictions fixed (no refit; the reference's training mean is not recomputed
+inside a resample), so it reflects which surgeons were evaluated, not training
+variability.
+
+Not run: a full-file sensitivity analysis.Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.

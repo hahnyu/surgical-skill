@@ -333,3 +333,24 @@ def test_feature_free_mae_on_a_hand_computation(data):
         mean = sub.loc[fold.train, "grs"].mean()
         misses += [abs(sub.loc[t, "grs"] - mean) for t in fold.test]
     assert feature_free_reference("Suturing", "LOSO", data)["mae"] == pytest.approx(np.mean(misses))
+
+
+# --- the headline table -----------------------------------------------------------------
+
+
+def test_headline_row_matches_a_direct_computation(data, cfg):
+    """Knot-Tying LOUO: recompute the improvement from the model's own predictions
+    and the feature-free predictions, without going through report.py."""
+    from report import headline_row
+    oof = cross_validate("Knot_Tying", "LOUO", "regression", data, cfg)
+    row = headline_row(oof, data, "Knot_Tying", "LOUO", {"n_resamples": 50, "confidence": 0.95, "seed": 0})
+    sub = data[data["task"] == "Knot_Tying"]
+    free = {}
+    for fold in load_splits("Knot_Tying", "LOUO"):
+        for trial in fold.test:
+            free[trial] = sub.loc[fold.train, "grs"].mean()
+    free = pd.Series(free).loc[oof.index]
+    expected = np.mean(np.abs(oof["y_true"] - free)) - np.mean(np.abs(oof["y_true"] - oof["y_pred"]))
+    assert row["improvement"] == pytest.approx(expected)
+    assert row["reference_mae"] == pytest.approx(np.mean(np.abs(oof["y_true"] - free)))
+    assert row["beats_reference"] == (row["improvement_low"] > 0)

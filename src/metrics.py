@@ -147,3 +147,28 @@ def classification_report(y_true, y_pred, subjects, n_resamples=2000, confidence
         result = subject_bootstrap(y_true, y_pred, subjects, fn, n_resamples, confidence, seed)
         _with_interval(name, result, out)
     return out
+
+
+def mae_improvement(y_true, y_model, y_reference, subjects, n_resamples=2000, confidence=0.95, seed=0) -> dict:
+    """How much smaller the model's average miss is than a reference predictor's.
+
+    improvement = reference MAE - model MAE, in GRS points. POSITIVE means the model
+    is better; zero means no better than the reference; negative means worse.
+
+    Per trial, take |truth - reference| minus |truth - model|: how many points closer
+    the model got. The average of those is the improvement. The interval comes from
+    resampling whole surgeons, with both sets of predictions held fixed (nothing is
+    refit, and the reference's training mean is not recomputed inside a resample).
+    """
+    y_true, y_model, y_reference = (np.asarray(a, dtype=float) for a in (y_true, y_model, y_reference))
+    gain = np.abs(y_true - y_reference) - np.abs(y_true - y_model)
+    result = subject_bootstrap(gain, np.zeros_like(gain), subjects, lambda g, _: float(np.mean(g)),
+                               n_resamples, confidence, seed)
+    return {
+        "model_mae": mae(y_true, y_model),
+        "reference_mae": mae(y_true, y_reference),
+        "improvement": result["estimate"],
+        "improvement_low": result["low"],
+        "improvement_high": result["high"],
+        "n_subjects": result["n_subjects"],
+    }

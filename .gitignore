@@ -8,3 +8,4 @@ results/features*.csv
 results/figures/
 results/feature_grs_spearman.csv
 results/predictions/
+results/headline_table.csv

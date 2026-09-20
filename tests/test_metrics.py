@@ -13,6 +13,7 @@ from metrics import (
     classification_report,
     kendall,
     mae,
+    mae_improvement,
     quadratic_kappa,
     regression_report,
     rmse,
@@ -161,3 +162,61 @@ def test_reports_have_the_expected_keys():
     labels = np.array(["N", "I", "E", "N", "I", "E", "N", "I"] * 5)
     cls = classification_report(labels, labels, subjects, n_resamples=50)
     assert cls["accuracy"] == 1.0 and cls["quadratic_kappa"] == pytest.approx(1.0)
+
+
+# --- MAE improvement over a reference ----------------------------------------------------
+
+
+def test_mae_improvement_on_a_hand_worked_case():
+    # Truth 10, 12, 20, 22. The model misses by 1, 0, 1, 0 (MAE 0.5). The reference,
+    # 16 for everything, misses by 6, 4, 4, 6 (MAE 5.0). Improvement = 5.0 - 0.5 = 4.5.
+    y = [10, 12, 20, 22, 10, 12, 20, 22]
+    model = [11, 12, 19, 22, 11, 12, 19, 22]
+    reference = [16] * 8
+    subjects = list("AABBCCDD")
+    r = mae_improvement(y, model, reference, subjects, n_resamples=300, seed=0)
+    assert r["model_mae"] == pytest.approx(0.5)
+    assert r["reference_mae"] == pytest.approx(5.0)
+    assert r["improvement"] == pytest.approx(4.5)
+
+
+def test_mae_improvement_is_positive_when_the_model_is_better_and_zero_when_identical():
+    y = np.array([10, 12, 20, 22, 10, 12, 20, 22], dtype=float)
+    subjects = list("AABBCCDD")
+    reference = np.full(8, 16.0)
+    better = mae_improvement(y, y + 1, reference, subjects, n_resamples=300, seed=0)
+    assert better["improvement"] > 0 and better["improvement_low"] > 0     # better on every trial
+    same = mae_improvement(y, reference, reference, subjects, n_resamples=300, seed=0)
+    assert same["improvement"] == 0
+    assert same["improvement_low"] == 0 and same["improvement_high"] == 0
+
+
+def test_mae_improvement_is_negative_when_the_model_is_worse():
+    y = np.array([10, 12, 20, 22, 10, 12, 20, 22], dtype=float)
+    subjects = list("AABBCCDD")
+    worse = mae_improvement(y, y + 10, np.full(8, 16.0), subjects, n_resamples=300, seed=0)
+    assert worse["improvement"] < 0 and worse["improvement_high"] < 0
+
+
+def test_mae_improvement_interval_widens_when_surgeons_disagree():
+    """The model helps on some surgeons and hurts on others: the interval must
+    straddle zero and be wider than for a model that is uniformly a bit better."""
+    y = np.array([10.0] * 10 + [20.0] * 10)
+    subjects = np.repeat(list("ABCDEFGHIJ"), 2)
+    reference = np.full(20, 15.0)
+    mixed_model = y.copy()
+    mixed_model[:10] += np.array([8, -8, 8, -8, 8, -8, 8, -8, 8, -8])   # very wrong on some trials
+    uniform_model = y + 1.0
+    mixed = mae_improvement(y, mixed_model, reference, subjects, n_resamples=500, seed=0)
+    uniform = mae_improvement(y, uniform_model, reference, subjects, n_resamples=500, seed=0)
+    assert (mixed["improvement_high"] - mixed["improvement_low"]) > (uniform["improvement_high"] - uniform["improvement_low"])
+
+
+def test_mae_improvement_resamples_whole_surgeons():
+    """Reuses the surgeon bootstrap, whose whole-surgeon property is tested above;
+    here just confirm the interval is reproducible for a seed."""
+    y = np.arange(20, dtype=float)
+    subjects = np.repeat(list("ABCDEFGHIJ"), 2)
+    a = mae_improvement(y, y + 2, np.full(20, 10.0), subjects, n_resamples=200, seed=5)
+    b = mae_improvement(y, y + 2, np.full(20, 10.0), subjects, n_resamples=200, seed=5)
+    assert a == b
