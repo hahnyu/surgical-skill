@@ -531,5 +531,46 @@ mean, speed std, accel mean, idle fraction, hull volume, gripper cycles.
 Pairs at |Spearman| >= 0.9: two (`PSM1_speed_mean ~ PSM1_accel_mean` 0.91,
 `PSM2_speed_mean ~ PSM2_speed_std` 0.91). 132 tests pass.
 
+### Phase 2 boxplots: rules PRE-DECLARED before any figure exists (2026-09-20)
+
+This is the first time the labels are looked at against the features. The rules
+below are fixed now, in a commit that precedes the plotting code, so they cannot
+bend to what the plots show.
+
+**Main grouping: GRS bands, computed WITHIN each task** (user's choice; GRS
+distributions differ by task -- median 19 Suturing, 14.5 Knot-Tying, 13
+Needle-Passing -- so a pooled cut would make "high" mean different things and
+would mostly separate tasks). Cut points are the 33.3rd and 66.7th percentiles of
+that task's GRS: **low = GRS <= q33; high = GRS > q67; mid = otherwise**. Ties
+share a band (no arbitrary tie-breaking), so band sizes are unequal; they are
+reported. "High" therefore means a different absolute GRS in each task.
+Secondary grouping: the self-declared E/I/N label, same layout.
+
+**Layout:** one figure per task, one small panel per feature (16), each with its
+own y-axis, showing every trial as a point over a box. No pooling across tasks.
+
+**Numeric supplement:** Spearman rho between each feature and GRS, per task, with
+n. 16 features x 3 tasks = 48 comparisons; no p-values are used to select
+features, and nothing here is a significance claim.
+
+**Pre-stated directions (higher GRS = more skilled), and their basis:**
+- `task_time_s`: lower with higher GRS (PLAN.md: experts show shorter times).
+- `*_path_length`: lower (PLAN.md: shorter paths).
+- `*_idle_fraction`: lower (from the literature hits on idle time, unverified;
+  TODO(verify) with a source).
+Every other feature is exploratory: NO direction is stated, and none may be
+claimed afterwards as "expected".
+
+**Stop rule (PLAN.md):** if the pre-stated-direction features run the OPPOSITE way
+in most tasks, stop and investigate the pipeline; do not adjust features.
+
+**No numeric pass/fail cutoff is set** for PLAN.md's "at least three features
+that visibly separate skill levels". That is a visual judgment; the plots and rho
+table are reported and the user judges. No cutoff will be invented afterwards.
+
+**Not allowed after seeing the plots:** changing any feature, threshold, the
+smoothing cutoff, the bands, or the set of features shown. Anything that looks
+wrong is logged and decided by the user, not fixed to make the picture better.
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
