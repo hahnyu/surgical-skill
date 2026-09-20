@@ -946,5 +946,56 @@ sets of predictions fixed (no refit; the reference's training mean is not recomp
 inside a resample), so it reflects which surgeons were evaluated, not training
 variability.
 
+### Headline results: MAE improvement over predicting the mean (2026-09-20)
+
+`uv run python src/report.py` (clean tree, commit after the rule was committed);
+36 rows in `results/headline_table.csv` (gitignored) and in `experiments.csv`
+(`kind = headline_mae_vs_reference`). Improvement = reference MAE - model MAE in GRS
+points; positive = model better. Interval: 95%, resampling whole surgeons, predictions
+held fixed. Rule (fixed beforehand): the model beats the reference only if the LOWER
+end of the interval is above zero.
+
+Primary features (5 Hz), **LOUO (the headline)**:
+
+| task | config | reference MAE | model MAE | improvement [95% interval] | beats? | rho model / reference |
+|---|---|---|---|---|---|---|
+| Suturing | v1 | 4.71 | 4.56 | +0.15 [-1.04, +1.33] | no | +0.21 / -0.78 |
+| Knot-Tying | v1 | 5.10 | 3.56 | **+1.54 [+0.65, +2.52]** | **YES** | +0.64 / -0.86 |
+| Needle-Passing | v1 | 4.41 | 4.91 | **-0.50 [-1.21, -0.04]** | no | -0.13 / -0.79 |
+| Suturing | v2 | 4.71 | 5.09 | -0.37 [-1.29, +0.33] | no | -0.04 / -0.78 |
+| Knot-Tying | v2 | 5.10 | 3.56 | +1.54 [+0.65, +2.52] | YES | +0.64 / -0.86 |
+| Needle-Passing | v2 | 4.41 | 4.50 | -0.09 [-0.29, +0.08] | no | -0.44 / -0.79 |
+
+LOSO (reported alongside; includes surgeon recognition, see the surgeon-ID finding):
+v1 beats the reference in all three tasks (Suturing +1.15 [+0.47, +1.92], Knot-Tying
++1.78 [+1.00, +2.58], Needle-Passing +0.43 [+0.11, +0.76]); v2 beats it in Suturing
+and Knot-Tying (identical numbers) but not Needle-Passing (-0.07 [-0.67, +0.49]).
+
+**Reading, by the pre-declared rule:**
+- **Knot-Tying is the only task where the model beats predicting the mean on a NEW
+  surgeon**: about 1.5 GRS points, or roughly 30% lower error (3.56 vs 5.10).
+- **Suturing: no demonstrable gain** across new surgeons (point estimates +0.15 and
+  -0.37, intervals spanning zero widely).
+- **Needle-Passing under v1: the model is WORSE than the mean** (-0.50, interval
+  entirely below zero, though only just: upper end -0.04). Under v2's heavier
+  shrinkage it collapses to about the reference (-0.09). More flexibility hurts on
+  new surgeons here.
+
+**Sensitivity to smoothing, LOUO (pre-declared runs, all six config x feature-set
+combinations):** Knot-Tying's improvement is positive in all six (+1.18 to +1.69) but
+its interval excludes zero in only 4 of 6: at 8 Hz the lower end is -0.26, so that
+run just misses the rule. Suturing never beats the reference (points -0.76 to +0.15).
+Needle-Passing is negative in all six (-0.09 to -0.80), with the interval entirely
+below zero in 2 of 6. So the Knot-Tying claim is "consistently positive, clears the
+bar in most but not all variants"; it should not be stated more strongly than that.
+
+Caveats to carry forward: 7-8 surgeons, so intervals are crude; the interval ignores
+training variability; the reference is one specific baseline (the training mean), and
+a stronger one (e.g. a per-task median or a task-time-only model) would be a harder
+bar and has not been run. The improvement of about 1.5 points is against a scale of
+6-30 with a per-task GRS standard deviation of 4.8-5.4 points (Suturing 5.40,
+Knot-Tying 5.11, Needle-Passing 4.82), so it is modest in absolute terms even where
+it is credible: about a fifth to a third of a standard deviation.
+
 Not run: a full-file sensitivity analysis.Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
