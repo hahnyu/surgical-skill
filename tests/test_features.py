@@ -8,6 +8,8 @@ obviously broken -- these tests are what makes it visible.
 import numpy as np
 import pytest
 
+from scipy.signal import butter, filtfilt
+
 import loaders
 
 from features import (
@@ -24,6 +26,7 @@ from features import (
     task_time,
     bimanual_coordination,
     build_feature_matrix,
+    smooth_positions,
     smoothness,
     sparc,
     working_volume,
@@ -408,8 +411,16 @@ def matrix():
     return build_feature_matrix()
 
 
+@pytest.fixture(scope="module")
+def raw_matrix():
+    """The same matrix with smoothing switched off."""
+    cfg = load_feature_config()
+    cfg["smoothing_cutoff_hz"] = None
+    return build_feature_matrix(cfg)
+
+
 def test_feature_matrix_shape_and_index(matrix):
-    assert matrix.shape == (103, 24)
+    assert matrix.shape == (103, 18)
     assert matrix.index.is_unique
     assert set(matrix.index) == set(loaders.load_all_meta()["trial"])
 
@@ -433,7 +444,7 @@ def test_feature_matrix_is_reproducible(matrix):
 
 @pytest.mark.parametrize("trial", ["Suturing_B001", "Knot_Tying_D003", "Needle_Passing_B001"])
 @pytest.mark.parametrize("arm, pos_cols, grip_col", [("PSM1", slice(38, 41), 56), ("PSM2", slice(57, 60), 75)])
-def test_matrix_agrees_with_an_independent_read_of_the_raw_file(matrix, trial, arm, pos_cols, grip_col):
+def test_matrix_agrees_with_an_independent_read_of_the_raw_file(raw_matrix, trial, arm, pos_cols, grip_col):
     """The load-bearing check on column indexing and windowing.
 
     Recompute path length, task time and the gripper range straight from the raw
@@ -443,6 +454,7 @@ def test_matrix_agrees_with_an_independent_read_of_the_raw_file(matrix, trial, a
     loaders.py is used. If that machinery had an off-by-one, everything else
     would agree with itself and still be wrong; this would not.
     """
+    matrix = raw_matrix   # built with smoothing OFF, so raw positions compare exactly
     task = loaders.task_of(trial)
     raw = np.loadtxt(loaders.DATA_DIR / task / "kinematics" / "AllGestures" / f"{trial}.txt")
     assert raw.shape[1] == 76
@@ -467,3 +479,128 @@ def test_matrix_agrees_with_an_independent_read_of_the_raw_file(matrix, trial, a
     # Speed mean recomputed from raw positions.
     expected_speed = np.linalg.norm(np.diff(positions, axis=0), axis=1).mean() * 30
     assert matrix.loc[trial, f"{arm}_speed_mean"] == pytest.approx(expected_speed)
+
+
+# --- smoothing ------------------------------------------------------------
+
+
+def sine(freq_hz, n=300, fps=30):
+    t = np.arange(n) / fps
+    return np.sin(2 * np.pi * freq_hz * t)[:, None] * np.ones((1, 3))
+
+
+def test_smoothing_leaves_a_constant_position_alone():
+    x = np.full((100, 3), 0.05)
+    assert np.allclose(smooth_positions(x, 5.0), 0.05)
+
+
+def test_smoothing_leaves_a_steady_ramp_alone():
+    x = straight_line(100)
+    core = slice(10, 90)   # ignore the edges, where any filter has to guess
+    assert np.allclose(smooth_positions(x, 5.0)[core], x[core], atol=1e-6)
+
+
+def gain(freq_hz, cutoff_hz=5.0):
+    """Fraction of a sine's amplitude that survives smoothing, away from the edges.
+    Divides by the input's own biggest sample: a fast sine sampled at 30 Hz never
+    lands exactly on its peak, so comparing with 1.0 would be wrong."""
+    core = slice(60, 240)
+    x = sine(freq_hz)
+    return np.abs(smooth_positions(x, cutoff_hz)[core]).max() / np.abs(x[core]).max()
+
+
+def test_smoothing_keeps_slow_motion_and_removes_tremor_band_motion():
+    assert gain(1.0) > 0.99      # slow, deliberate motion passes
+    assert gain(2.0) > 0.95
+    assert gain(12.0) < 0.01     # 12 Hz, inside the 8-12 Hz tremor band, is gone
+    assert gain(8.0) < 0.10
+
+
+def test_smoothing_has_gain_one_half_at_the_cutoff():
+    """Running the filter forward and backward squares its gain, so at the cutoff
+    the gain is 0.5, not the single-pass 0.707. Documented in the config."""
+    assert gain(5.0) == pytest.approx(0.5, abs=0.02)
+
+
+def test_smoothing_adds_no_time_shift():
+    """Forward-and-backward filtering cancels the delay: a single bump keeps its
+    peak at the same frame. (A bump has one unambiguous peak; a multi-cycle sine
+    has several near-equal ones, so argmax would be arbitrary.)"""
+    t = np.arange(200)
+    bump = np.exp(-((t - 100) / 12.0) ** 2 / 2)[:, None] * np.ones((1, 3))
+    smoothed = smooth_positions(bump, 5.0)
+    assert np.argmax(bump[:, 0]) == np.argmax(smoothed[:, 0]) == 100
+
+
+def test_smoothing_keeps_the_shape_and_does_not_change_its_input():
+    x = sine(1.0)
+    before = x.copy()
+    y = smooth_positions(x, 5.0)
+    assert y.shape == x.shape
+    assert np.array_equal(x, before)
+
+
+def test_smoothing_shrinks_a_single_frame_position_spike():
+    """A one-frame excursion (the kind of glitch behind the huge speed_max) has
+    its speed reduced but not removed. Documented limitation."""
+    x = np.zeros((200, 3))
+    x[100, 0] = 0.02                                     # 20 mm for one frame
+    raw_peak = speed(x).max()
+    smooth_peak = speed(smooth_positions(x, 5.0)).max()
+    assert 0 < smooth_peak < raw_peak / 3
+
+
+def test_config_holds_the_smoothing_choice():
+    cfg = load_feature_config()
+    assert cfg["smoothing_cutoff_hz"] == 5.0
+    assert cfg["smoothing_order"] == 2
+    assert cfg["smoothing_sensitivity_cutoffs_hz"] == [None, 8.0]
+
+
+# --- the bundle of 2026-09-20 --------------------------------------------
+
+
+def test_matrix_columns_match_the_bundle(matrix):
+    per_arm = ["path_length", "speed_mean", "speed_std", "accel_mean",
+               "idle_fraction", "movements_per_min", "working_volume", "gripper_cycles"]
+    expected = ["task_time_s"] + [f"{a}_{f}" for a in ("PSM1", "PSM2") for f in per_arm] + ["bimanual_speed_corr"]
+    assert list(matrix.columns) == expected
+
+
+def test_dropped_features_are_absent(matrix):
+    for arm in ("PSM1", "PSM2"):
+        for gone in ("speed_max", "accel_max", "sparc", "n_movements"):
+            assert f"{arm}_{gone}" not in matrix.columns
+
+
+def test_movements_per_min_is_a_whole_count_divided_by_minutes(matrix):
+    for arm in ("PSM1", "PSM2"):
+        counts = matrix[f"{arm}_movements_per_min"] * matrix["task_time_s"] / 60
+        assert np.allclose(counts, counts.round(), atol=1e-6), "should be whole counts / minutes"
+
+
+@pytest.mark.parametrize("trial", ["Suturing_B001", "Knot_Tying_D003", "Needle_Passing_B001"])
+def test_smoothed_path_length_agrees_with_an_independent_filter_call(matrix, trial):
+    """Recompute the smoothed path length from the raw file with bare column
+    indices and a direct scipy filter call, independent of smooth_positions."""
+    task = loaders.task_of(trial)
+    raw = np.loadtxt(loaders.DATA_DIR / task / "kinematics" / "AllGestures" / f"{trial}.txt")
+    starts, ends = [], []
+    for line in (loaders.DATA_DIR / task / "transcriptions" / f"{trial}.txt").read_text().split("\n"):
+        parts = line.split()
+        if len(parts) >= 3:
+            starts.append(int(parts[0]))
+            ends.append(int(parts[1]))
+    window = raw[min(starts) - 1: max(ends)]
+    b, a = butter(2, 5.0, btype="low", fs=30)
+    for arm, cols in (("PSM1", slice(38, 41)), ("PSM2", slice(57, 60))):
+        smoothed = filtfilt(b, a, window[:, cols], axis=0)
+        expected = np.linalg.norm(np.diff(smoothed, axis=0), axis=1).sum()
+        assert matrix.loc[trial, f"{arm}_path_length"] == pytest.approx(expected)
+
+
+def test_smoothing_reduces_path_length_on_every_trial(matrix, raw_matrix):
+    """Removing jitter can only shorten a path. A violation would mean the two
+    matrices are not comparing the same thing."""
+    for arm in ("PSM1", "PSM2"):
+        assert (matrix[f"{arm}_path_length"] <= raw_matrix[f"{arm}_path_length"] + 1e-12).all()

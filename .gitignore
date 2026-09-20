@@ -4,4 +4,4 @@ data/
 __pycache__/
 results/jev_raw/
 .DS_Store
-results/features.csv
+results/features*.csv

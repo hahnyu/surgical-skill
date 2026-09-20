@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import yaml
+from scipy.signal import butter, filtfilt
 from scipy.spatial import ConvexHull, QhullError
 
 from loaders import FPS, load_all_meta, load_kinematics  # FPS: 30 Hz
@@ -37,6 +38,28 @@ def load_feature_config(path: Path = CONFIG_PATH) -> dict:
 def task_time(n_frames: int, fps: int = FPS) -> float:
     """Task duration in seconds: number of frames divided by the frame rate."""
     return n_frames / fps
+
+
+def smooth_positions(positions: np.ndarray, cutoff_hz: float, fps: int = FPS, order: int = 2) -> np.ndarray:
+    """Low-pass filter tool-tip positions, removing fast jitter and keeping the
+    slower, deliberate motion.
+
+    A Butterworth filter passes frequencies below `cutoff_hz` and fades out
+    those above it. scipy.signal.butter designs it; filtfilt applies it forward
+    and then backward, so the two passes cancel each other's time delay and a
+    movement is not shifted in time. Each of the x, y, z columns is filtered
+    independently (axis=0 means "down the rows", i.e. along time).
+
+    Running the filter twice squares its gain, so the gain at the cutoff is 0.5
+    rather than 0.707. Frequencies well below the cutoff pass almost unchanged.
+
+    The filter needs a trajectory longer than its padding (a few frames); scipy
+    raises a ValueError otherwise. A sudden jump in position will ring slightly
+    around the jump: the artifact is spread over a few frames and its peak
+    shrinks, but it is not removed.
+    """
+    b, a = butter(order, cutoff_hz, btype="low", fs=fps)
+    return filtfilt(b, a, positions, axis=0)
 
 
 def step_lengths(positions: np.ndarray) -> np.ndarray:
@@ -269,31 +292,41 @@ def arm_columns(arm: str, suffixes) -> list:
 def trial_features(trial: str, cfg: dict) -> dict:
     """Every feature for one trial, as {feature name: value}.
 
-    Uses the annotated task window (decision 2026-09-19). Arm-level features are
-    computed for each instrument separately and prefixed with the arm name;
-    task time and bimanual coordination describe the trial as a whole.
+    Uses the annotated task window (decision 2026-09-19). Tool-tip positions are
+    smoothed once with a low-pass filter (cfg["smoothing_cutoff_hz"], 5 Hz; set
+    it to None for raw) before any derived feature is computed. The gripper angle
+    is not smoothed; the hysteresis band already absorbs its jitter.
+
+    Arm-level features are computed for each instrument separately and prefixed
+    with the arm name; task time and bimanual coordination describe the trial as
+    a whole.
+
+    Left out on purpose (decisions 2026-09-20, docs/NOTES.md): speed_max and
+    accel_max (corrupted by position jumps) and SPARC (whole-trial SPARC mostly
+    measures duration and movement count). The functions still exist.
     """
     kin = load_kinematics(trial, windowed=True)
-    positions = {arm: kin[arm_columns(arm, "xyz")].to_numpy() for arm in ARMS}
+    cutoff = cfg["smoothing_cutoff_hz"]
 
-    sparc_settings = dict(
-        cutoff_hz=cfg["sparc_cutoff_hz"],
-        amp_threshold=cfg["sparc_amp_threshold"],
-        padlevel=cfg["sparc_padlevel"],
-    )
+    positions = {}
+    for arm in ARMS:
+        raw = kin[arm_columns(arm, "xyz")].to_numpy()
+        positions[arm] = raw if cutoff is None else smooth_positions(raw, cutoff, order=cfg["smoothing_order"])
 
-    out = {"task_time_s": task_time(len(kin))}
+    duration_s = task_time(len(kin))
+    out = {"task_time_s": duration_s}
     for arm in ARMS:
         pos = positions[arm]
+        n_movements = count_movements(
+            pos, cfg["moving_speed_threshold"], cfg["min_movement_duration_s"]
+        )
         feats = {
             "path_length": path_length(pos),
-            **speed_features(pos),
-            **acceleration_features(pos),
+            "speed_mean": speed_features(pos)["speed_mean"],
+            "speed_std": speed_features(pos)["speed_std"],
+            "accel_mean": acceleration_features(pos)["accel_mean"],
             "idle_fraction": idle_fraction(pos, cfg["moving_speed_threshold"]),
-            "n_movements": count_movements(
-                pos, cfg["moving_speed_threshold"], cfg["min_movement_duration_s"]
-            ),
-            "sparc": smoothness(pos, **sparc_settings),
+            "movements_per_min": n_movements / (duration_s / 60),
             "working_volume": working_volume(pos),
             "gripper_cycles": gripper_cycles(
                 kin[f"{arm}_grip"].to_numpy(),
@@ -330,8 +363,20 @@ def build_feature_matrix(cfg: dict = None) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    # Regenerate the feature matrix:  uv run python src/features.py
-    out = Path(__file__).resolve().parent.parent / "results" / "features.csv"
-    matrix = build_feature_matrix()
-    matrix.to_csv(out)
-    print(f"wrote {matrix.shape[0]} trials x {matrix.shape[1]} features to {out}")
+    # Regenerate the feature matrices:  uv run python src/features.py
+    # results/features.csv is the primary matrix (smoothed at the config cutoff).
+    # The others are the pre-declared smoothing sensitivity analysis. All are
+    # gitignored: they are regenerable and derived from JIGSAWS.
+    results = Path(__file__).resolve().parent.parent / "results"
+    base_cfg = load_feature_config()
+
+    outputs = {"features.csv": base_cfg["smoothing_cutoff_hz"]}
+    for cutoff in base_cfg["smoothing_sensitivity_cutoffs_hz"]:
+        name = "features_raw.csv" if cutoff is None else f"features_{cutoff:g}hz.csv"
+        outputs[name] = cutoff
+
+    for filename, cutoff in outputs.items():
+        matrix = build_feature_matrix({**base_cfg, "smoothing_cutoff_hz": cutoff})
+        matrix.to_csv(results / filename)
+        label = "raw" if cutoff is None else f"{cutoff:g} Hz"
+        print(f"wrote {matrix.shape[0]} trials x {matrix.shape[1]} features ({label}) to {results / filename}")

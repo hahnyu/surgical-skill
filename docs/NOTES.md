@@ -406,7 +406,7 @@ interpolate, split the trial into segments), and any such rule is another
 pre-declared choice. Decide it before Phase 3, and not by which version scores
 best against GRS.
 
-### Five data-quality decisions ACCEPTED (2026-09-20) -- rebuild pending
+### Five data-quality decisions ACCEPTED (2026-09-20) -- APPLIED, see next entry
 
 Made together, after label-free diagnostics, on validity and not on
 performance. No labels were used. The bundle:
@@ -441,6 +441,71 @@ performance. No labels were used. The bundle:
 SPARC settings verified against the authors' reference implementation
 (`sparc(movement, fs, padlevel=4, fc=10.0, amp_th=0.05)`, github.com/siva82kb/SPARC),
 closing that TODO(verify) for the VALUES. The paper citation is still TODO(verify).
+
+### Bundle applied: 103 x 18 matrix, smoothed at 5 Hz (2026-09-20)
+
+**Smoothing choice: 5 Hz**, zero-phase Butterworth (`scipy.signal.butter` +
+`filtfilt`, second order per pass, so effectively fourth order), applied once to
+tool-tip positions before every derived feature; the gripper angle is not
+smoothed. Values live in `configs/features.yaml`. Because it runs forward and
+backward the gain at the cutoff is 0.5 (-6 dB), not 0.707; tests pin this.
+Behaviour (tested): 1 Hz and 2 Hz motion pass at 99% / 98%, 5 Hz at 50%, 8 Hz at
+7%, 12 Hz (tremor band) at 0.1%.
+
+Basis: a literature search found no JIGSAWS-specific cutoff. Physiological tremor
+sits at 8-12 Hz (several sources); voluntary hand movement is low-frequency
+(~0-2 Hz per a search summary of abstracts; NOT confirmed in full text); the
+surgical-tracking hits for 5-10 Hz Butterworth were patents, weak evidence. The
+evidence pins a RANGE of roughly 3-8 Hz, not a number; 5 Hz is a judgment call,
+like the 1 mm/s idle threshold. TODO(verify) if a source turns up.
+
+Pre-declared sensitivity analysis (not extra features): the primary result at
+5 Hz, repeated on raw positions and at 8 Hz. `uv run python src/features.py`
+writes `results/features.csv` (5 Hz), `features_raw.csv`, `features_8hz.csv`, all
+gitignored.
+
+Matrix now 103 x 18: `task_time_s`, `bimanual_speed_corr`, and 8 per arm
+(path length, speed mean, speed std, accel mean, idle fraction, movements per
+minute, hull volume, gripper cycles). Removed: `speed_max`, `accel_max`,
+`sparc`, raw `n_movements`. No NaN under raw, 8 Hz or 5 Hz.
+
+What smoothing did, label-free (median raw -> 5 Hz, rank agreement raw vs 5 Hz):
+- Barely changed: path length (0.999), speed mean (0.999), idle fraction
+  (0.99), hull volume (1.000), gripper cycles (1.000), bimanual correlation
+  (0.983). These do not hinge on the cutoff.
+- **Mean acceleration: PSM1 0.155 -> 0.066, PSM2 0.163 -> 0.061 m/s^2** (rank
+  agreement 0.97 / 0.93). More than half of raw acceleration was measurement
+  noise; the earlier "raw acceleration is noisy" flag is confirmed and now
+  addressed.
+- **Movements per minute: PSM1 31.1 -> 24.8, PSM2 28.1 -> 25.0**, rank agreement
+  only 0.85 / 0.78. The feature most sensitive to the smoothing choice.
+- The largest single-frame step falls from 26.9 mm (raw) to 14.8 mm (8 Hz) to
+  10.1 mm (5 Hz): jump artifacts are cut by more than half but not removed.
+- Collinearity: pairs at |Spearman| >= 0.9 fell from 7 to 2
+  (`PSM2_speed_mean ~ PSM2_speed_std` 0.91, `PSM1_speed_mean ~ PSM1_accel_mean`
+  0.91).
+
+**NEGATIVE RESULT -- smoothing did NOT fix movement chatter.** The reason given
+for smoothing (decision 3) was that 40% of counted movements were followed
+within <= 2 frames by another. After smoothing that share is **35.5% (8 Hz) and
+34.6% (5 Hz)**, down from 40.2% raw; total counted movements fell only from
+8888 to 7810 (-12%). So the chatter is not mainly high-frequency noise. Speed
+hovers around the 1 mm/s threshold during slow, fine motion, and that slow drift
+crosses the threshold repeatedly however the positions are filtered. Per-minute
+movement counts are therefore still inflated by threshold crossings, and remain
+the least trustworthy feature. Idle fraction (a share of time below threshold)
+does not suffer this way, which is why it is stable (rank agreement 0.99).
+
+Options for movement counting, NOT yet chosen (each adds a parameter set after
+seeing this result): (a) keep `movements_per_min` and report the caveat;
+(b) use hysteresis on speed (start above one threshold, end below a lower one),
+as already done for the gripper; (c) merge gaps of <= g frames; (d) drop
+`movements_per_min` and keep idle fraction. Decide before Phase 3, by validity
+and not by which scores best against GRS.
+
+Decision 3's rationale was therefore only partly borne out: smoothing is still
+justified by the acceleration result and the jump reduction, but not by the
+movement-splitting one.
 
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.

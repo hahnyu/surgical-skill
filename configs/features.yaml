@@ -35,3 +35,23 @@ sparc_padlevel: 4            # zero-pad the FFT to 2**(ceil(log2 n) + this) poin
 # PSM2's distribution has no clean gap, so its count is the less trustworthy one.
 gripper_low_threshold: -0.6
 gripper_high_threshold: -0.1
+
+# Position smoothing, applied ONCE to the tool-tip positions before every derived
+# feature (path length, speed, acceleration, idle, movements, volume,
+# coordination). Decided 2026-09-20. The gripper angle is not smoothed.
+#
+# Zero-phase Butterworth low-pass: run forward then backward (scipy filtfilt) so
+# it adds no time shift. Second order per pass, so effectively fourth order.
+# Because it runs twice, the gain at the cutoff is 0.5 (-6 dB), not 0.707.
+#
+# Why 5 Hz: it sits below the 8-12 Hz physiological-tremor band, above the
+# low-frequency content of voluntary movement, and at the low end of the 5-10 Hz
+# range used in surgical-tracking practice. The evidence pins a range of roughly
+# 3-8 Hz, not one number, so the exact value is a judgment call. No JIGSAWS-
+# specific value was found. TODO(verify): re-check if a source turns up.
+smoothing_cutoff_hz: 5.0     # null would mean "no smoothing" (raw)
+smoothing_order: 2
+
+# Robustness check, declared in advance: repeat the final analysis with raw
+# positions (null) and at 8 Hz. NOT extra features.
+smoothing_sensitivity_cutoffs_hz: [null, 8.0]
