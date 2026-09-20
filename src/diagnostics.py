@@ -8,6 +8,7 @@ model, no setting and no result; they only explain. Log them as post-hoc.
 Run:  uv run python src/diagnostics.py
 """
 
+import sys
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -16,8 +17,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from baseline import (EXPERIMENTS_CSV, SCHEMES, feature_columns, git_state, intercept_only_under_shuffles,
-                      load_config, load_dataset, log_run)
+from baseline import (EXPERIMENTS_CSV, SCHEMES, feature_columns, feature_free_reference, git_state,
+                      intercept_only_under_shuffles, load_config, load_dataset, log_run)
 from loaders import TASKS, load_splits
 
 
@@ -47,7 +48,7 @@ def surgeon_identification_accuracy(task: str, data: pd.DataFrame, cfg: dict) ->
     }
 
 
-def main() -> None:
+def main(sections=("A", "B", "C")) -> None:
     cfg = load_config()
     state = git_state()
     data = load_dataset(cfg["features_file"])
@@ -57,6 +58,15 @@ def main() -> None:
     common = {"config_file": "configs/baseline.yaml", **state, "feature_set": cfg["feature_set"],
               "seed": cfg["seed"], "sklearn_version": sklearn.__version__}
 
+    if "A" in sections:
+        section_a(cfg, data, primary, common, stamp)
+    if "B" in sections:
+        section_b(cfg, data, primary, common, stamp)
+    if "C" in sections:
+        section_c(cfg, data, log, common, stamp)
+
+
+def section_a(cfg, data, primary, common, stamp):
     print("A) Shuffled labels: intercept-only predictor vs the ridge sentinel (mean pooled Spearman)")
     print(f"   {'scheme':5} {'task':15} {'intercept-only':>15} {'ridge sentinel':>15}")
     for scheme in SCHEMES:
@@ -69,6 +79,9 @@ def main() -> None:
                      "kind": "diagnostic_intercept_only", "model": "training_mean",
                      "sentinel_mean_rho": null, "sentinel_n_permutations": cfg["permutation_sentinel"]["n_permutations"]})
 
+
+
+def section_b(cfg, data, primary, common, stamp):
     print("\nB) Surgeon identification from the features, LOSO (target = surgeon, not skill)")
     print(f"   {'task':15} {'surgeon acc':>12} {'chance':>7} | {'N/I/E acc LOSO':>15} {'N/I/E acc LOUO':>15} {'majority rate':>14}")
     for task in TASKS:
@@ -83,5 +96,23 @@ def main() -> None:
                  "n_subjects": result["n_subjects"]})
 
 
+def section_c(cfg, data, log, common, stamp):
+    """Each real model's rho next to the feature-free reference on the same labels."""
+    print("\nC) Real-label rho of the models against a feature-free reference (same folds, same labels)")
+    print(f"   {'scheme':5} {'task':15} {'feature-free':>13} {'v1 ridge':>9} {'v2 ridge':>9}")
+    primary_reg = log[(log["kind"] == "regression") & (log["feature_set"] == cfg["feature_set"])]
+    for scheme in SCHEMES:
+        for task in TASKS:
+            ref = feature_free_reference(task, scheme, data)
+            pick = lambda config: primary_reg[(primary_reg["config_file"] == config) & (primary_reg["cv_scheme"] == scheme)
+                                              & (primary_reg["task"] == task)].iloc[-1]["spearman"]
+            print(f"   {scheme:5} {task:15} {ref:>+13.3f} {pick('configs/baseline.yaml'):>+9.3f} "
+                  f"{pick('configs/baseline_v2.yaml'):>+9.3f}")
+            log_run({"timestamp": stamp(), **common, "cv_scheme": scheme, "task": task,
+                     "kind": "diagnostic_feature_free_reference", "model": "training_mean", "spearman": ref})
+
+
 if __name__ == "__main__":
-    main()
+    # uv run python src/diagnostics.py        (all sections)
+    # uv run python src/diagnostics.py C      (only the reference table)
+    main(tuple(sys.argv[1:]) or ("A", "B", "C"))

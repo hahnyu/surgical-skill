@@ -165,6 +165,22 @@ def intercept_only_under_shuffles(task: str, scheme: str, data: pd.DataFrame, cf
     return float(np.nanmean(rhos))
 
 
+def feature_free_reference(task: str, scheme: str, data: pd.DataFrame) -> float:
+    """Pooled Spearman of a predictor that ignores the features, on the REAL labels.
+
+    Each test trial is predicted by the mean GRS of that fold's training trials. It
+    is the score a model gets for knowing nothing about the surgeon's movements, and
+    because cross-validation biases such a predictor below zero, it is the fair
+    reference for any real model's rho: a model matters only to the extent it beats
+    THIS number, not zero.
+    """
+    sub = data[data["task"] == task]
+    pred = pd.Series(index=sub.index, dtype=float)
+    for fold in load_splits(task, scheme):
+        pred.loc[fold.test] = sub.loc[fold.train, "grs"].mean()
+    return spearman(sub["grs"], pred)
+
+
 def permutation_sentinel(task: str, scheme: str, data: pd.DataFrame, cfg: dict) -> dict:
     """Leakage check: refit under SHUFFLED labels.
 

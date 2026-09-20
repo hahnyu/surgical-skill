@@ -15,6 +15,7 @@ from baseline import (
     CLASS_ORDER,
     cross_validate,
     feature_columns,
+    feature_free_reference,
     load_config,
     load_dataset,
     log_run,
@@ -301,3 +302,23 @@ def test_run_experiment_prefixes_prediction_files_and_records_the_config(data, c
                    {**cfg, "bootstrap": quick["bootstrap"]}, state)
     assert (tmp_path / "smoothed_5hz_Suturing_LOSO_regression.csv").exists()
     assert logged[1]["config_file"] == "configs/baseline.yaml"
+
+
+def test_feature_free_reference_matches_a_hand_computation(data):
+    """Suturing LOSO: predict every held-out trial with its fold's training mean,
+    then correlate with the truth. Computed here directly, not through the module."""
+    from scipy.stats import spearmanr
+    sub = data[data["task"] == "Suturing"]
+    fold_mean = {}
+    for fold in load_splits("Suturing", "LOSO"):
+        mean = sub.loc[fold.train, "grs"].mean()
+        for trial in fold.test:
+            fold_mean[trial] = mean
+    predicted = pd.Series(fold_mean).loc[sub.index]
+    expected = spearmanr(sub["grs"], predicted)[0]
+    assert feature_free_reference("Suturing", "LOSO", data) == pytest.approx(expected)
+
+
+def test_feature_free_reference_ignores_the_features_entirely(data):
+    assert feature_free_reference("Suturing", "LOUO", data) == feature_free_reference(
+        "Suturing", "LOUO", synthetic(data, signal=False))
