@@ -1158,5 +1158,80 @@ intervals overlap heavily.
 - Jev's confidence and probabilities are in the cached responses for Phase 5; not yet analysed.
 - Prompt v1 stays as is. Any change is a new version reported alongside.
 
+## Phase 5 -- evaluation: design PRE-DECLARED before any Phase 5 number exists (2026-09-20)
+
+The user approved proceeding "on those terms": with a weak model on new surgeons, the
+question is whether confidence can tell us WHICH trials to hand to a human. That is a fair
+test of the method, not a showcase. Nothing below was chosen after looking at Jev's
+confidence values or at any calibration or risk-coverage result.
+
+**Inputs, frozen.** Baseline = the v1 config, primary (5 Hz) features: ridge GRS
+predictions and multinomial-logistic N/I/E probabilities, both LOSO and LOUO, from
+`results/predictions/`. Jev = prompt v1, run 0: `overall_skill` level probabilities,
+`confidence`, and GRS points from the per-fold line fitted on training trials only.
+Reference = the feature-free predictor (fold training-mean GRS). Calibration and selective
+prediction pool all 103 trials, with the surgeon LETTER as the resampling cluster: the
+eight surgeons performed all three tasks, so the same letter is the same person (G is
+absent from Needle-Passing).
+
+**A. Agreement (per task and scheme; both methods).** Spearman, Kendall, MAE, MAE
+improvement over the reference, and ICC(2,1). In pingouin 0.6.1 that row is called
+`ICC(A,1)` (two-way random, absolute agreement, single rater); PLAN.md's "ICC2" is the
+older name. Its interval assumes independent trials, so it is indicative only, not
+surgeon-clustered. Bland-Altman plots (mean of prediction and truth against their
+difference, with the bias and 95% limits of agreement) for LOUO, all three tasks, both
+methods. QWK for the ordinal sub-scores is NOT computed: the element order is unverified
+and the continuous element scores are exploratory.
+
+**Human ceiling, context only.** Verified 2026-09-20: the Martin et al. 1997 abstract
+(BJS 84:273) says "Mean interrater reliability across stations ranged from 0.64 to 0.72",
+from 20 residents on live-animal and bench stations. The abstract does not name the
+coefficient, and it is not a robotic task, so it is NOT treated as directly comparable to
+our ICC(2,1). PLAN.md's further figure (about 0.71-0.79 for trained raters) is UNVERIFIED,
+TODO(verify); a second OSATS paper checked (PMC3574562) reports no ICC. No claim is made
+that a method "reaches the ceiling".
+
+**B. Calibration: each path judged on the event it actually describes.**
+- Baseline: its top-class probability against the self-declared class (N/I/E), its own
+  training target, LOSO and LOUO.
+- Jev: its `overall_skill` level probabilities, RAW (no recalibration), against a true
+  level derived from GRS: level = clip(floor(GRS / 6 + 0.5), 1, 5) - 1, i.e. levels 0-4. GRS
+  is the sum of six 1-5 elements, so GRS / 6 is the mean element score on the same 1-5
+  scale that Jev's five levels were written to mirror. Jev is never trained, so this result
+  is the same for LOSO and LOUO.
+- The two paths use DIFFERENT truths, so their calibration is not compared head to head.
+- Metrics: reliability diagram of top-label confidence against accuracy, 5 equal-width
+  bins, pooled 103 predictions; ECE and MCE (`netcal`, 5 bins); multiclass Brier score
+  (mean over trials of the sum over classes of (p - 1[class])^2) against a best-constant
+  reference that predicts the class frequencies of all 103 trials (strong, because it uses
+  the test labels); Brier skill score = 1 - Brier / reference, positive = better than the
+  constant. Also top-label accuracy, and for Jev within-one-level accuracy. Intervals:
+  surgeon bootstrap, 2000 resamples, seed 0.
+- Known limit, stated now: any offset between Jev's scale and this GRS-derived level shows
+  up as miscalibration. It is a property of the pairing as well as of Jev; no recalibration
+  is applied afterwards.
+
+**C. Selective prediction on GRS error (the headline).**
+- Each path supplies a GRS prediction and one confidence per trial. Baseline: the ridge
+  prediction, with the classifier's top-class probability as its confidence (two baseline
+  models combined; declared). Jev: the calibrated-line prediction, with Jev's own reported
+  `confidence` for `overall_skill` (secondary: its maximum level probability).
+- Risk = absolute GRS error. The least confident trials are deferred first; ties broken by
+  trial name (arbitrary, deterministic).
+- Risk-coverage curve = the average error of the k most confident trials, k = 1..103.
+  AURC = the mean of those 103 values. Oracle AURC = the same with trials ordered by true
+  error. Random-deferral reference = overall MAE (flat). E-AURC = AURC - oracle.
+- **Usefulness of confidence = (overall MAE - AURC)**, positive = deferring by confidence
+  helps. **Rule, fixed now:** confidence is called informative only if the lower end of its
+  95% surgeon-bootstrap interval is above zero; with 8 surgeons that is suggestive, not proof.
+- Headline table: at coverage 100 / 80 / 60 / 40 percent, the pooled MAE and the MAE
+  improvement over the reference on the RETAINED trials, per path and scheme. Rank
+  correlation and ICC on retained subsets are NOT reported: a pooled correlation is inflated
+  by between-task differences in mean GRS, and per-task counts fall to 10-15.
+- LOUO is the headline scheme; LOSO alongside.
+
+**Not done, by design.** No recalibration of either path; no other confidence signal;
+no tuning of bins, coverage levels or thresholds after results.
+
 Not run: a full-file sensitivity analysis.Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
