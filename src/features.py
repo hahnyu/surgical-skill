@@ -44,6 +44,33 @@ def speed(positions: np.ndarray, fps: int = FPS) -> np.ndarray:
     return step_lengths(positions) * fps
 
 
+def acceleration(positions: np.ndarray, fps: int = FPS) -> np.ndarray:
+    """Size of the acceleration vector at each frame, from positions alone.
+
+    np.diff(..., n=2) takes the difference of the differences: the change in
+    (dx, dy, dz) from one step to the next. Dividing by the time per frame
+    squared (1/fps)^2 turns that into a real acceleration, so we multiply by
+    fps**2. We then take the length of each acceleration vector.
+
+    This is the size of the full vector, so it also picks up changes of
+    direction, not just speeding up and slowing down. Result has n_frames - 2
+    entries.
+
+    This is RAW: no smoothing. Differencing twice amplifies measurement noise,
+    so these values are noisy. See docs/NOTES.md (2026-09-20).
+    """
+    return np.linalg.norm(np.diff(positions, n=2, axis=0), axis=1) * fps**2
+
+
+def acceleration_features(positions: np.ndarray, fps: int = FPS) -> dict:
+    """Mean and maximum acceleration magnitude (raw, unsmoothed)."""
+    a = acceleration(positions, fps)
+    return {
+        "accel_mean": float(a.mean()),
+        "accel_max": float(a.max()),
+    }
+
+
 def speed_features(positions: np.ndarray, fps: int = FPS) -> dict:
     """Mean, standard deviation, and maximum speed."""
     s = speed(positions, fps)

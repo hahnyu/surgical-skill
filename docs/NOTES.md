@@ -183,5 +183,40 @@ Units: positions span ~0.01-0.1 and mean speed is ~0.01 per second, consistent
 with meters and ~1 cm/s. TODO(verify) against the JIGSAWS documentation before
 any units appear in a figure or the paper.
 
+## 2026-09-20
+
+### Acceleration — RAW, unsmoothed. FLAGGED, revisit before Phase 3.
+
+Decision (2026-09-20): compute acceleration **raw**, with no smoothing, for now.
+Smoothing needs a window or cutoff, and PLAN.md warns against tuning such
+choices against results. Deferred, not dismissed.
+
+Definition used: the **length of the acceleration vector**, from the second
+difference of position (`np.diff(positions, n=2) * fps**2`), so it responds to
+speeding up, slowing down, *and* changing direction. n_frames - 2 values. The
+alternative is the change in speed (signed; blind to constant-speed turns).
+Easy to switch; not chosen.
+
+Why it is flagged: differencing twice amplifies measurement noise. Check on
+`Suturing_B001` (windowed), acceleration in m/s^2:
+
+| arm | mean | median | p99 | max | max / median |
+|---|---|---|---|---|---|
+| PSM1 | 0.154 | 0.121 | 0.595 | 1.281 | 10.6 |
+| PSM2 | 0.138 | 0.069 | 0.820 | 1.669 | 24.1 |
+
+The tail is heavy: on PSM2 the maximum is 24x the median, so `accel_max` for a
+trial may be set by a single frame. I have **not** shown this is noise rather
+than a genuine abrupt movement -- do not describe it as noise in the write-up
+without evidence.
+
+Ruled out: quantisation. Positions are recorded to 1e-6 m (smallest nonzero
+step), which would contribute only ~1e-3 m/s^2, far below the median of ~0.1.
+
+Prefer `accel_mean` over `accel_max` if only one is used. Open questions to
+settle before Phase 3, with a choice made in advance of seeing model results:
+(1) smooth or not, and if so how; (2) whether to keep `accel_max` at all.
+One trial only.
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.

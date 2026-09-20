@@ -8,7 +8,15 @@ obviously broken -- these tests are what makes it visible.
 import numpy as np
 import pytest
 
-from features import path_length, speed, speed_features, step_lengths, task_time
+from features import (
+    acceleration,
+    acceleration_features,
+    path_length,
+    speed,
+    speed_features,
+    step_lengths,
+    task_time,
+)
 
 
 def straight_line(n_frames, step=(0.001, 0.0, 0.0)):
@@ -77,3 +85,47 @@ def test_speed_is_independent_of_direction():
     diagonal = speed(straight_line(20, step=(0.001 / np.sqrt(3),) * 3))
     assert np.allclose(along_x, along_y)
     assert np.allclose(along_x, diagonal)
+
+
+def test_acceleration_of_constant_velocity_is_zero():
+    # Moving at a steady speed in a straight line: no acceleration at all.
+    assert np.allclose(acceleration(straight_line(50)), 0.0)
+
+
+def test_acceleration_of_constant_acceleration():
+    # Position x = 0.5 * a * t^2 has acceleration exactly a. With a = 2 m/s^2
+    # and t = k / 30, the second difference recovers a exactly.
+    a, fps = 2.0, 30
+    t = np.arange(40) / fps
+    positions = np.zeros((40, 3))
+    positions[:, 0] = 0.5 * a * t**2
+    assert np.allclose(acceleration(positions, fps), a)
+
+
+def test_acceleration_has_two_fewer_entries_than_frames():
+    assert len(acceleration(straight_line(11))) == 9
+
+
+def test_acceleration_picks_up_a_change_of_direction():
+    # Constant speed around a circle still accelerates (toward the centre):
+    # magnitude v^2 / r = omega^2 * r. Sampled finely, the finite-difference
+    # answer is close to that.
+    fps, radius, omega = 30, 0.02, 1.5  # m, rad/s
+    t = np.arange(400) / fps
+    positions = np.column_stack([radius * np.cos(omega * t), radius * np.sin(omega * t), np.zeros_like(t)])
+    expected = omega**2 * radius
+    assert np.allclose(acceleration(positions, fps), expected, rtol=0.01)
+    assert np.allclose(speed(positions, fps), omega * radius, rtol=0.01)  # speed is constant
+
+
+def test_acceleration_of_a_stationary_tool_is_zero():
+    assert acceleration_features(np.zeros((100, 3))) == {"accel_mean": 0.0, "accel_max": 0.0}
+
+
+def test_acceleration_features_on_known_values():
+    # Positions 0, 0, 0.001, 0.001: differences 0, 0.001, 0; second differences
+    # +0.001 and -0.001, each of size 0.001 -> 0.001 * 30^2 = 0.9 m/s^2.
+    positions = np.array([[0.0, 0, 0], [0, 0, 0], [0.001, 0, 0], [0.001, 0, 0]])
+    feats = acceleration_features(positions, fps=30)
+    assert feats["accel_mean"] == pytest.approx(0.9)
+    assert feats["accel_max"] == pytest.approx(0.9)
