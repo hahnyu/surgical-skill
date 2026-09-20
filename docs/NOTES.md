@@ -572,5 +572,86 @@ table are reported and the user judges. No cutoff will be invented afterwards.
 smoothing cutoff, the bands, or the set of features shown. Anything that looks
 wrong is logged and decided by the user, not fixed to make the picture better.
 
+### Phase 2 boxplots: what they show (2026-09-20)
+
+`uv run python src/plot_features.py` writes 6 figures to `results/figures/`
+(GRS bands: main, `features_by_grs_band_<task>.png`; self-declared skill:
+secondary, `features_by_skill_<task>.png`) and `results/feature_grs_spearman.csv`.
+Both are gitignored (regenerable, derived). Palette: three steps of the dataviz
+skill's blue ramp (250/450/650), validated with `validate_palette.js --ordinal`,
+all four checks pass. The band rule has 7 tests (`tests/test_plot_features.py`).
+Rules were pre-declared in the entry above and were followed: no feature,
+threshold, band or panel was changed after seeing a figure.
+
+Band sizes (ties share a band, so unequal): Suturing 16/11/12, Knot-Tying
+14/12/10, Needle-Passing 12/7/9 (low/mid/high). GRS ranges of the bands:
+Suturing low 8-17, mid 18-21, high 23-30; Knot-Tying 6-11, 12-18, 19-22;
+Needle-Passing 7-12, 13-15, 17-24. "High" is a different absolute GRS in each task.
+
+**Stop rule: NOT triggered.** Of the 15 feature-task cells with a pre-stated
+direction (task time, both arms' path length, both arms' idle fraction; expected
+rho < 0), **12 run the expected way**, and every task has >= 3 of 5:
+Suturing 3, Knot-Tying 5, Needle-Passing 4.
+
+Spearman rho with GRS (n = 39 / 36 / 28):
+
+| feature | Suturing | Knot-Tying | Needle-Passing |
+|---|---|---|---|
+| task_time_s | -0.34 | -0.79 | -0.18 |
+| PSM1_path_length | -0.31 | -0.22 | -0.35 |
+| PSM1_speed_mean | +0.12 | +0.68 | -0.16 |
+| PSM1_speed_std | +0.26 | +0.63 | +0.02 |
+| PSM1_accel_mean | +0.12 | +0.68 | -0.26 |
+| PSM1_idle_fraction | +0.03 | -0.45 | +0.55 |
+| PSM1_working_volume | -0.05 | +0.43 | -0.04 |
+| PSM1_gripper_cycles | -0.30 | -0.46 | -0.27 |
+| PSM2_path_length | +0.11 | -0.50 | -0.13 |
+| PSM2_speed_mean | +0.55 | +0.28 | +0.07 |
+| PSM2_speed_std | +0.60 | +0.20 | +0.03 |
+| PSM2_accel_mean | +0.44 | +0.24 | +0.07 |
+| PSM2_idle_fraction | -0.37 | -0.18 | -0.21 |
+| PSM2_working_volume | +0.47 | -0.12 | +0.10 |
+| PSM2_gripper_cycles | -0.47 | -0.63 | -0.39 |
+| bimanual_speed_corr | +0.44 | +0.56 | +0.20 |
+
+**Pre-stated features that went the WRONG way (logged, not fixed):**
+- `PSM1_idle_fraction` in **Needle-Passing: rho = +0.55**, the opposite of the
+  expectation, and not small: the band medians rise from about 0.125 (low) to
+  0.185 (high). In Suturing it is +0.03 (no relationship); only in Knot-Tying is
+  it the expected -0.45. PSM2's idle fraction goes the expected way in all three
+  tasks (-0.37, -0.18, -0.21), so the two arms disagree.
+- `PSM2_path_length` in Suturing: +0.11 (weak, wrong way).
+Neither has an explanation yet, and none is claimed.
+
+Strongest expected-direction result: `task_time_s` in Knot-Tying, rho = -0.79.
+It is weak in Needle-Passing (-0.18).
+
+**Exploratory, NO direction was pre-stated, so none may be called "expected":**
+features with the same sign in all three tasks are, negative: task time, PSM1
+path length, both arms' gripper cycles, PSM2 idle fraction; positive: bimanual
+speed correlation, PSM2 mean speed, PSM2 speed SD, PSM2 mean acceleration, and PSM1
+speed SD (but only +0.02 in Needle-Passing, effectively zero there).
+Gripper cycles (rho -0.47 / -0.63 / -0.39 on PSM2) is the notable one among
+those with no prior. Speed features flip sign across tasks on PSM1 (mean speed
++0.12 / +0.68 / -0.16), so do not read a single "faster = better".
+
+**Read these rhos with care:**
+- Roughly, a single correlation reaches the usual 5% line at |rho| >=
+  1.96 / sqrt(n - 1) = 0.32 (Suturing), 0.33 (Knot-Tying),
+  0.38 (Needle-Passing). 20 of 48 cells clear it
+  (8 / 10 / 2 by task); about 2-3 would by
+  chance alone with 48 comparisons. A rough guide only, NOT used to select features.
+- **The trials are not independent.** Each surgeon contributes ~5 trials per
+  task, so the effective sample is closer to 7-8 surgeons than to 28-39 trials,
+  and these rhos look more precise than they are. Skill is confounded with
+  surgeon identity (the main threat to validity, CLAUDE.md): a correlation here
+  can reflect a surgeon's style, not skill. Descriptive only; LOUO in Phase 3 is
+  the check that bites.
+- Units are assumed SI and unverified (footnote on every figure).
+
+PLAN.md's "at least three features that visibly separate skill levels": no
+numeric cutoff was set in advance and none is invented here. The judgment is
+left to the user, with the figures and this table as the evidence.
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
