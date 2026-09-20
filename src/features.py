@@ -169,3 +169,57 @@ def bimanual_coordination(positions_a: np.ndarray, positions_b: np.ndarray, fps:
     if speed_a.std() == 0 or speed_b.std() == 0:
         raise ValueError("speed is constant on one instrument; correlation is undefined")
     return float(np.corrcoef(speed_a, speed_b)[0, 1])
+
+
+def sparc(
+    speed_profile: np.ndarray,
+    fps: int = FPS,
+    cutoff_hz: float = 10.0,
+    amp_threshold: float = 0.05,
+    padlevel: int = 4,
+) -> float:
+    """Spectral arc length (SPARC): a smoothness score. Negative; closer to 0 is smoother.
+
+    Takes a speed profile (one value per time step), not positions.
+
+    1. Fourier-transform the speed profile, zero-padding to a power of two for a
+       finely resolved spectrum, and normalise so the peak magnitude is 1. The
+       normalising makes the score independent of how fast the movement was.
+    2. Keep frequencies up to cutoff_hz, then trim the spectrum to the span
+       where the magnitude stays at or above amp_threshold.
+    3. Measure the arc length of that curve, with frequency scaled to 0..1 and
+       magnitude on the other axis: sum of sqrt(d_freq^2 + d_magnitude^2).
+       A smooth movement has a simple spectrum and a short arc; a jerky one
+       has many bumps and a long arc.
+    4. Negate, so that a smoother movement scores higher (nearer zero).
+
+    Raises on an all-zero speed profile, where the spectrum cannot be normalised.
+    """
+    speed_profile = np.asarray(speed_profile, dtype=float)
+    if not np.any(speed_profile):
+        raise ValueError("speed profile is all zeros; SPARC is undefined")
+
+    n_fft = int(2 ** (np.ceil(np.log2(len(speed_profile))) + padlevel))
+    freqs = np.arange(n_fft) * fps / n_fft
+    magnitude = np.abs(np.fft.fft(speed_profile, n_fft))
+    magnitude = magnitude / magnitude.max()
+
+    keep = freqs <= cutoff_hz
+    freqs, magnitude = freqs[keep], magnitude[keep]
+
+    above = np.flatnonzero(magnitude >= amp_threshold)
+    freqs = freqs[above[0]: above[-1] + 1]
+    magnitude = magnitude[above[0]: above[-1] + 1]
+
+    d_freq = np.diff(freqs) / (freqs[-1] - freqs[0])
+    d_mag = np.diff(magnitude)
+    return float(-np.sum(np.sqrt(d_freq**2 + d_mag**2)))
+
+
+def smoothness(positions: np.ndarray, fps: int = FPS, **sparc_settings) -> float:
+    """Whole-trial SPARC of the tool tip's speed profile (decision 2026-09-20).
+
+    Pass the settings from configs/features.yaml as keyword arguments
+    (cutoff_hz, amp_threshold, padlevel).
+    """
+    return sparc(speed(positions, fps), fps, **sparc_settings)

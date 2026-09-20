@@ -20,6 +20,8 @@ from features import (
     step_lengths,
     task_time,
     bimanual_coordination,
+    smoothness,
+    sparc,
     working_volume,
 )
 
@@ -273,3 +275,60 @@ def test_bimanual_coordination_raises_when_an_arm_never_changes_speed():
         bimanual_coordination(moving, np.zeros_like(moving))
     with pytest.raises(ValueError):
         bimanual_coordination(moving, moving[:-5])   # different lengths
+
+
+def bell(duration_s, fps=30, width=0.15):
+    """A smooth bell-shaped speed profile: one clean movement."""
+    t = np.linspace(0, 1, int(duration_s * fps))
+    return np.exp(-((t - 0.5) / width) ** 2 / 2)
+
+
+def test_sparc_is_negative():
+    assert sparc(bell(2.0)) < 0
+
+
+def test_sparc_ignores_overall_speed():
+    # The spectrum is normalised, so moving 100x faster scores the same.
+    assert sparc(bell(2.0) * 100) == pytest.approx(sparc(bell(2.0)))
+
+
+def test_sparc_of_one_smooth_movement_does_not_depend_on_its_duration():
+    """PLAN.md's reason for preferring SPARC. True for a SINGLE movement, which
+    is what this tests. It is NOT true of a whole multi-movement trial; see
+    test_sparc_worsens_as_more_movements_are_added and docs/NOTES.md."""
+    values = [sparc(bell(d)) for d in (1.0, 2.0, 4.0)]
+    assert max(values) - min(values) < 0.02
+
+
+def test_sparc_scores_a_wiggly_movement_as_less_smooth():
+    t = np.linspace(0, 3, 90)
+    smooth = bell(3.0)
+    wiggly = smooth + 0.15 * np.sin(2 * np.pi * 4 * t)   # add a 4 Hz tremor
+    assert sparc(wiggly) < sparc(smooth)
+
+
+def test_sparc_worsens_as_more_movements_are_added():
+    """Documents a limitation of whole-trial SPARC (decision 2026-09-20): five
+    identical, perfectly smooth movements score much lower than one, so the
+    whole-trial value partly counts movements. Measured: one bell -1.41, two
+    -2.97, five -4.66."""
+    one = sparc(bell(3.0))
+    five = sparc(np.concatenate([bell(0.6)] * 5))
+    assert five < one - 2.0
+
+
+def test_sparc_raises_on_an_all_zero_profile():
+    with pytest.raises(ValueError):
+        sparc(np.zeros(100))
+
+
+def test_smoothness_is_sparc_of_the_speed_profile():
+    positions = path_from_steps([FAST, SLOW, FAST, FAST, SLOW, SLOW, FAST] * 10)
+    assert smoothness(positions) == pytest.approx(sparc(speed(positions)))
+
+
+def test_config_holds_the_sparc_settings():
+    cfg = load_feature_config()
+    assert cfg["sparc_cutoff_hz"] == 10.0
+    assert cfg["sparc_amp_threshold"] == 0.05
+    assert cfg["sparc_padlevel"] == 4

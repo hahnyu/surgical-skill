@@ -16,3 +16,11 @@ min_movement_duration_s: 0.2
 # Robustness check only, run on the final analysis. NOT extra features.
 # Declared in advance: 0.5, 1 and 2 mm/s.
 idle_threshold_grid: [0.0005, 0.001, 0.002]
+
+# Spectral arc length (SPARC) smoothness, applied to the whole windowed trial's
+# speed profile. Settings are the published defaults as remembered from the
+# original paper's reference implementation (Balasubramanian et al. 2015).
+# TODO(verify): confirm these three values against the paper before the write-up.
+sparc_cutoff_hz: 10.0        # ignore spectrum above this frequency
+sparc_amp_threshold: 0.05    # trim the spectrum's tail below this fraction of its peak
+sparc_padlevel: 4            # zero-pad the FFT to 2**(ceil(log2 n) + this) points

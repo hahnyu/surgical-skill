@@ -273,5 +273,46 @@ Known limitations, written down now:
 - Raw movement count grows with trial duration, so it is partly redundant with
   task time. A per-minute form is available; whether to use it is undecided.
 
+### Working volume, bimanual coordination, smoothness (SPARC) — decisions
+
+Decided 2026-09-20: **working volume** = convex hull volume (`scipy.spatial
+.ConvexHull`); **bimanual coordination** = Pearson correlation of the two
+instruments' speed profiles; **smoothness** = SPARC on the speed profile of the
+**whole windowed trial**, with cutoff 10 Hz, amplitude threshold 0.05, padding 4.
+Those SPARC settings are the published defaults as I remember them from the
+original paper's reference implementation (Balasubramanian et al. 2015).
+TODO(verify) all three against the paper before the write-up.
+
+Edge cases: volume returns 0 when the points span no 3D shape (never moved, or
+only along a line or plane). Bimanual coordination and SPARC **raise** on
+undefined input (constant speed, all-zero profile) rather than return NaN, so no
+NaN can reach the feature matrix.
+
+Label-free sanity check, all 103 trials: no NaNs, no zero volumes. Hull volume
+runs from ~9 to 309 cm^3 (a workspace a few centimetres wide); one Suturing PSM2
+trial reaches 309, ~4x that arm's median, consistent with a hull being set by a
+few extreme frames. Bimanual correlation is modest: medians 0.26-0.34, maximum
+0.63.
+
+**SPARC WARNING -- whole-trial SPARC is largely a duration / movement-count
+measure.** One smooth movement scores about -1.41 regardless of duration
+(1, 2, 4 s all give -1.41 to -1.42), so PLAN.md's claim that SPARC is
+insensitive to duration holds for a *single movement*. But five identical,
+perfectly smooth movements score -4.66 (two score -2.97). Real whole trials
+score -8 to -34, and across the 103 trials (both arms) SPARC correlates with
+**movement count at Spearman -0.83** and with **duration at -0.81**; within
+each task the correlations are still -0.60 to -0.75. So the whole-trial value
+mostly reports how long the trial is and how many movements it holds, not how
+smooth each one was. This is a feature-to-feature check; no labels were used.
+
+Chose whole-trial with this caveat known in advance (it was in the option
+description); the size of the effect was not. Options still open, to decide
+before Phase 3: (a) keep whole-trial and accept the overlap, mindful that a
+regression will split credit among collinear features; (b) switch to per-movement
+mean SPARC (closer to how SPARC is defined, but movements can be as short as
+0.2 s = 6 frames, where the spectrum is poorly resolved, and it ties smoothness
+to the speed threshold); (c) drop SPARC. Do not pick by which scores best
+against GRS.
+
 Not run: a full-file sensitivity analysis. Offered as an option, not chosen.
 Cheap to add later since `windowed=False` is the default.
