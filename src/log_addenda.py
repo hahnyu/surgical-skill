@@ -30,11 +30,13 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
-from baseline import EXPERIMENTS_CSV, feature_columns, git_state, load_config, load_dataset, log_run
+from baseline import EXPERIMENTS_CSV, PREDICTIONS_DIR, feature_columns, git_state, load_config, load_dataset, log_run
+from diagnostics import surgeon_identification_predictions
 from evaluation import assemble, baseline_proba, jev_proba
 from jev_analysis import PRIMARY, load_scores, score_vs_features, scores_for
 from jev_client import load_jev_config
 from loaders import TASKS, load_all_meta
+from metrics import subject_bootstrap
 
 DUPLICATE_NOTE = ("verification re-run 2026-09-20 (identical values, later commit); "
                   "duplicates the earlier batch, NOT independent evidence")
@@ -124,6 +126,78 @@ def log_addenda() -> None:
               f"difference {accuracy - rate:+.3f}")
 
 
+def already_logged(kind: str) -> bool:
+    """True if this addendum is already in the log. Keeps the script safe to re-run:
+    the duplicate-row problem this file exists to fix must not be recreated by it."""
+    log = pd.read_csv(EXPERIMENTS_CSV)
+    return kind in set(log["kind"])
+
+
+def log_accuracy_intervals() -> None:
+    """Surgeon-cluster intervals for every accuracy that appears in Figure 1.
+
+    Panels A and B report accuracies; with 8 surgeons a bare percentage implies more
+    precision than the sample supports. Three things are logged:
+      * classification accuracy per task and scheme, with an interval;
+      * surgeon-identification accuracy per task, with an interval;
+      * the LOSO-minus-LOUO gap, bootstrapped PAIRED on the same resampled surgeons,
+        which is the right way to put uncertainty on the paper's headline claim.
+    Predictions are held fixed, so an interval reflects which surgeons were evaluated,
+    not how the result would move if the model were refit.
+    """
+    base_cfg = load_config()
+    boot = base_cfg["bootstrap"]
+    data = load_dataset(base_cfg["features_file"])
+    state = git_state()
+    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    common = {"timestamp": stamp, **state, "seed": base_cfg["seed"], "run_note": ADDENDUM_NOTE,
+              "config_file": "configs/baseline.yaml", "feature_set": "smoothed_5hz"}
+    args = (boot["n_resamples"], boot["confidence"], boot["seed"])
+    share_correct = lambda correct, _: float(correct.mean())
+
+    print("classification accuracy with 95% surgeon-bootstrap intervals:")
+    correct_by = {}
+    for scheme in ("LOSO", "LOUO"):
+        for task in TASKS:
+            oof = pd.read_csv(PREDICTIONS_DIR / f"smoothed_5hz_{task}_{scheme}_classification.csv", index_col=0)
+            correct = (oof["y_true"] == oof["y_pred"]).astype(float)
+            correct_by[(scheme, task)] = (correct, oof["subject"])
+            r = subject_bootstrap(correct, np.zeros(len(correct)), oof["subject"], share_correct, *args)
+            log_run({**common, "cv_scheme": scheme, "task": task, "kind": "addendum_classification_ci",
+                     "model": "multinomial_logistic", "accuracy": r["estimate"],
+                     "accuracy_low": r["low"], "accuracy_high": r["high"], "n": len(oof)})
+            print(f"   {scheme} {task:15s} {r['estimate']:.3f} [{r['low']:.3f}, {r['high']:.3f}]")
+
+    print("surgeon identification accuracy with intervals:")
+    for task in TASKS:
+        per_trial = surgeon_identification_predictions(task, data, base_cfg)
+        r = subject_bootstrap(per_trial["correct"], np.zeros(len(per_trial)), per_trial["subject"],
+                              share_correct, *args)
+        chance = 1 / per_trial["subject"].nunique()
+        log_run({**common, "cv_scheme": "LOSO", "task": task, "kind": "addendum_surgeon_identity_ci",
+                 "model": "multinomial_logistic", "accuracy": r["estimate"], "accuracy_low": r["low"],
+                 "accuracy_high": r["high"], "chance_accuracy": chance, "n": len(per_trial)})
+        print(f"   {task:15s} {r['estimate']:.3f} [{r['low']:.3f}, {r['high']:.3f}]  chance {chance:.3f}")
+
+    print("the protocol gap (LOSO minus LOUO), paired on the same resampled surgeons:")
+    for task in TASKS:
+        loso, subjects = correct_by[("LOSO", task)]
+        louo, _ = correct_by[("LOUO", task)]
+        gap = (loso - louo.reindex(loso.index)).astype(float)
+        r = subject_bootstrap(gap, np.zeros(len(gap)), subjects, lambda g, _: float(g.mean()), *args)
+        log_run({**common, "cv_scheme": "LOSO_minus_LOUO", "task": task, "kind": "addendum_protocol_gap",
+                 "model": "multinomial_logistic", "accuracy_gap": r["estimate"],
+                 "accuracy_gap_low": r["low"], "accuracy_gap_high": r["high"], "n": len(gap)})
+        print(f"   {task:15s} {r['estimate']:+.3f} [{r['low']:+.3f}, {r['high']:+.3f}]")
+
+
 if __name__ == "__main__":
     tag_duplicate_runs()
-    log_addenda()
+    if already_logged("addendum_jev_score_vs_feature"):
+        print("addenda already logged; skipping (this script is safe to re-run)")
+    else:
+        log_addenda()
+    if already_logged("addendum_classification_ci"):
+        print("accuracy intervals already logged; skipping")
+    else:
+        log_accuracy_intervals()

@@ -22,6 +22,29 @@ from baseline import (EXPERIMENTS_CSV, SCHEMES, feature_columns, feature_free_re
 from loaders import TASKS, load_splits
 
 
+def surgeon_identification_predictions(task: str, data: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """Per-trial surgeon-identification results under LOSO, for bootstrapping.
+
+    One row per trial: the true surgeon, the predicted surgeon, and whether it was right.
+    Same folds, features, scaler-in-pipeline and C as the skill classifier.
+    """
+    sub = data[data["task"] == task]
+    columns = feature_columns(data)
+    pieces = []
+    for fold in load_splits(task, "LOSO"):
+        model = Pipeline([
+            ("scale", StandardScaler()),
+            ("model", LogisticRegression(C=cfg["classification"]["C"], max_iter=cfg["classification"]["max_iter"])),
+        ])
+        model.fit(sub.loc[fold.train, columns], sub.loc[fold.train, "subject"])
+        predicted = model.predict(sub.loc[fold.test, columns])
+        pieces.append(pd.DataFrame({"subject": sub.loc[fold.test, "subject"], "predicted": predicted},
+                                   index=fold.test))
+    out = pd.concat(pieces).loc[sub.index]
+    out["correct"] = (out["subject"] == out["predicted"]).astype(float)
+    return out
+
+
 def surgeon_identification_accuracy(task: str, data: pd.DataFrame, cfg: dict) -> dict:
     """Under LOSO, how often do the features alone name the right surgeon?
 

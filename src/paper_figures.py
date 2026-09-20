@@ -49,7 +49,7 @@ def _style(ax):
 
 
 def _bars(ax, groups, values, references, ref_label, ylabel, title, ylim=(0, 1.05),
-          ref_pos=(0.99, 0.965), ref_ha="right"):
+          ref_pos=(0.99, 0.965), ref_ha="right", intervals=None):
     """One grouped-bar panel: three task bars per group, with a per-bar reference tick.
 
     `groups` is a list of (key, display label). `values` and `references` are keyed by
@@ -68,8 +68,15 @@ def _bars(ax, groups, values, references, ref_label, ylabel, title, ylim=(0, 1.0
             if ref is not None:
                 ax.plot([x - width / 2, x + width / 2], [ref, ref], color=INK, linewidth=1.6,
                         linestyle=(0, (2, 1.4)), zorder=3)
-            # Keep the value clear of the reference tick when the tick sits above the bar.
-            label_y = height + 0.018 if ref is None or ref < height else max(height + 0.018, ref + 0.026)
+            top = height
+            if intervals is not None and (key, task) in intervals:
+                low, high = intervals[(key, task)]
+                ax.plot([x, x], [low, high], color=INK, linewidth=1.5, solid_capstyle="butt", zorder=4)
+                for end in (low, high):                       # small caps, so the ends are readable
+                    ax.plot([x - 0.055, x + 0.055], [end, end], color=INK, linewidth=1.5, zorder=4)
+                top = max(top, high)
+            # Keep the value clear of both the interval and the reference tick.
+            label_y = max(top, ref if ref is not None else top) + 0.026
             ax.text(x, label_y, f"{height:.2f}", ha="center", fontsize=8.5, color=INK, zorder=5,
                     bbox=dict(facecolor=SURFACE, edgecolor="none", pad=1.0))
     ax.set_xticks(centres)
@@ -88,8 +95,9 @@ def headline_figure(log: pd.DataFrame, out) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(14.5, 5.0), facecolor=SURFACE)
 
     # --- A: skill classification, same surgeon vs new surgeon -------------------------
-    cls = log[(log["kind"] == "classification") & (log["feature_set"] == "smoothed_5hz")]
+    cls = log[log["kind"] == "addendum_classification_ci"]
     accuracy = {(r.cv_scheme, r.task): r.accuracy for r in cls.itertuples()}
+    cls_ci = {(r.cv_scheme, r.task): (r.accuracy_low, r.accuracy_high) for r in cls.itertuples()}
     majority = {r.task: r.majority_class_rate for r in log[log["kind"] == "addendum_majority_class"].itertuples()}
     _style(axes[0])
     groups_a = [("LOSO", "same surgeon\nin training (LOSO)"), ("LOUO", "held-out\nsurgeon (LOUO)")]
@@ -97,12 +105,13 @@ def headline_figure(log: pd.DataFrame, out) -> None:
           {(g, t): majority[t] for g, _ in groups_a for t in TASKS},
           "- - -  always predict the biggest class",
           "skill classification accuracy (N/I/E)",
-          "A.  The protocol gap\nSame features, same model, different evaluation protocol.")
+          "A.  The protocol gap\nSame features, same model, different evaluation protocol.",
+          ylim=(0, 1.12), intervals=cls_ci)
     axes[0].legend(frameon=False, fontsize=9, labelcolor=INK_2, loc="upper center", ncol=3,
                    bbox_to_anchor=(0.5, -0.11))
 
     # --- B: can the same features name the surgeon? ------------------------------------
-    sid = log[log["kind"] == "diagnostic_surgeon_identity"]
+    sid = log[log["kind"] == "addendum_surgeon_identity_ci"]
     _style(axes[1])
     _bars(axes[1], [("LOSO", "same surgeon\nin training (LOSO)")],
           {("LOSO", r.task): r.accuracy for r in sid.itertuples()},
@@ -110,7 +119,8 @@ def headline_figure(log: pd.DataFrame, out) -> None:
           "- - -  chance",
           "surgeon identification accuracy",
           "B.  Why\nThe same features name WHICH surgeon, not how skilled.",
-          ref_pos=(0.015, 0.965), ref_ha="left")
+          ylim=(0, 1.12), ref_pos=(0.015, 0.965), ref_ha="left",
+          intervals={("LOSO", r.task): (r.accuracy_low, r.accuracy_high) for r in sid.itertuples()})
     axes[1].set_xlim(-0.78, 0.78)
 
     # --- C: what survives, on GRS -------------------------------------------------------
@@ -151,10 +161,11 @@ def headline_figure(log: pd.DataFrame, out) -> None:
     fig.suptitle("Skill assessment on JIGSAWS: the reported accuracy is largely surgeon recognition",
                  x=0.008, ha="left", fontsize=14, color=INK, y=0.985)
     fig.text(0.008, 0.008,
-             "A and B: 103 trials, 8 surgeons (7 in Needle-Passing); chance in B is 1 / number of surgeons, so 0.125 for Suturing and Knot-Tying and 0.143 for Needle-Passing.\n"
-             "C: leave-one-user-out only; the reference predicts each held-out trial with its training fold's mean GRS. Every value is read from results/experiments.csv.",
+             "All intervals are 95%, resampling whole surgeons with predictions held fixed. A and B: 103 trials, 8 surgeons (7 in Needle-Passing); chance in B is 1 / number of surgeons.\n"
+             "C: leave-one-user-out only; the reference predicts each held-out trial with its training fold's mean GRS. Every value is read from results/experiments.csv.\n"
+             "The LOSO-minus-LOUO gap in A, paired on the same resampled surgeons: +0.49 [0.35, 0.62] Suturing, +0.67 [0.41, 0.89] Knot-Tying, +0.54 [0.27, 0.71] Needle-Passing.",
              fontsize=8, color=MUTED, ha="left", va="bottom")
-    fig.tight_layout(rect=(0, 0.065, 1, 0.93))
+    fig.tight_layout(rect=(0, 0.085, 1, 0.93))
     FIGURES.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=150, facecolor=SURFACE)
     plt.close(fig)
