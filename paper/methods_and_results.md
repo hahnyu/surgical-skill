@@ -39,6 +39,20 @@ entangled with speaker identity. These are instances of shortcut learning [Geirh
 affecting 294 papers [Kapoor and Narayanan 2023]. We return to the methodological debate
 this literature provoked in §2.3.
 
+That performance falls when the held-out surgeon is genuinely unseen is not in dispute; it
+has been reported repeatedly on this benchmark. What has not settled is why. Three studies
+of JIGSAWS attribute the same gap to three different causes: limited generalisation,
+answered by a call for surgeon-invariant features; the quality of the dataset's
+representations and annotations; and an absence of subject-independent validation in
+earlier work. A fourth, on open-surgery hand tracking rather than robot kinematics, comes
+closest to the account we pursue, describing its own gap as quantifying "the
+surgeon-specific component captured by video-level splits" — and stops there. Three
+different attributions, none of them measured, and a fourth study that names a mechanism
+without measuring it either. The test is inexpensive: train the same features to predict
+which surgeon performed the trial, and read off how much identity is recoverable. To our
+knowledge no surgical skill assessment study has run it. The gap has been treated as a
+limitation to engineer away rather than as a quantity to measure.
+
 Judging such a system also requires care about the target it is fitted to. The reference
 standard is a human rating, and human ratings of technical skill are neither perfectly
 reliable nor uniformly so: pooled inter-rater reliability for global rating scales in
