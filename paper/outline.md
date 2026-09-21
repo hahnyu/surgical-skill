@@ -10,48 +10,67 @@ table a reviewer will look for first.
 
 ## 1. Section-by-section outline
 
-### 1. Introduction
-**Thesis:** Reported JIGSAWS skill-assessment accuracy is produced under evaluation
-protocols that leave the same surgeons in training; we show that most of the apparent
-skill signal is surgeon recognition, and that the confidence these models report is not
-usable for the human-in-the-loop triage such systems are proposed for.
+### 1. Introduction  (paragraph plan, 2026-09-20; not yet drafted)
 
-Beats: (a) automated skill assessment is proposed for training and credentialling, where
-a wrong score has consequences; (b) JIGSAWS is the field's standard benchmark and ships
-two protocols — LOSO (same surgeons in training) and LOUO (held-out surgeon); (c) results
-are commonly reported under LOSO; (d) we audit what that buys, on a conventional baseline
-and a commercial zero-shot decision model; (e) contributions, four bullets mapping to the
-Results subsections.
+Arc: general phenomenon -> surgical gap -> what a good score must beat -> thesis and
+contributions. Each paragraph below names the Related Work or Results claim it rests on, so
+the narrowing can be checked before prose.
 
-### 1. Introduction  (structure fixed 2026-09-20 from the literature review)
+**¶1 — Stakes. [ADDITION, flagged]** Automated skill assessment is proposed for training
+and credentialling; in any such use the system scores a surgeon it has not seen before.
+Two or three sentences, no citations from our own results.
+*Rests on:* nothing in our data. Pure framing, and the one paragraph at risk of asserting
+more about clinical deployment than we can support. Keep modest and non-quantitative.
+*Why added:* the fixed arc opens on the general ML phenomenon, which for a surgical
+readership means two paragraphs before surgery is mentioned. This paragraph buys that
+opening without losing the reader. Remove if you want the phenomenon to open cold.
 
-**Thesis:** Identity confounding under naive cross-validation is a well-established
-failure mode across machine learning; it has not been demonstrated in robotic
-surgical-skill assessment, where the sanctioned LOSO protocol places the same surgeons in
-training and test.
+**¶2 — The general phenomenon.** Identity confounding under naive cross-validation: Saeb
+et al. 2017 and Chaibub Neto et al. 2019 for the mechanism and the name; Brookshire et al.
+2024 as the closest structural mirror (an EEG classifier above 99% under segment holdout,
+indistinguishable from chance on unseen subjects); speaker leakage in depression detection
+as a second modality; Geirhos et al. 2020 and Kapoor and Narayanan 2023 as the umbrella.
+*Rests on:* no claim of ours. This paragraph exists to establish that we did not discover
+the mechanism.
+*Seam to manage:* §2.3 already cites Saeb et al. as the study Little et al. responded to.
+Here Saeb is cited for the phenomenon; there, for the counter-argument. Do not re-explain
+the study in §2.3 — cross-reference it.
 
-- **¶1 The general phenomenon.** Saeb et al. 2017 (record-wise ~2% error against
-  subject-wise ~7%, rising to ~27% with two subjects) and Chaibub Neto et al. 2019, who
-  named "identity confounding". Reinforce with the closest structural mirror of our own
-  collapse: Brookshire et al. 2024 in EEG, where an Alzheimer's classifier reading above
-  99% under segment-based holdout was indistinguishable from chance on unseen subjects,
-  and a seizure classifier fell 79.1% to 65.1%. Add speaker leakage in depression
-  detection (arXiv 2604.14354) as a second modality. Umbrella: Geirhos et al. 2020
-  (shortcut learning) and Kapoor & Narayanan 2023 (leakage across 17 fields, 294 papers —
-  the peer-reviewed Patterns count, not the 329 of the preprint).
-- **¶2 What a good score would have to beat.** Human GRS inter-rater reliability pooled at
-  ICC 0.78 (Ilgen et al. 2015), but fragile: untrained raters as low as 0.26, and training
-  not retained months later (Gawad et al. 2019). This frames the target as a noisy label,
-  not a fixed ceiling.
-- **¶3 The gap and the thesis.** The failure mode is undemonstrated in robotic
-  surgical-skill assessment. State contributions: the protocol gap quantified with paired
-  intervals; the surgeon-identification experiment; the first calibration and
-  selective-prediction audit in this application; a zero-shot decision model evaluated
-  against a one-feature baseline.
+**¶3 — The narrowing: suspected in surgery, never tested.** The failure mode has not been
+demonstrated in robotic surgical skill assessment, though the field repeatedly gestures at
+it. Name the pattern compactly: a documented gap framed as a generalisation limitation, as
+representation quality, as missing subject-independent validation, and once as a
+"surgeon-specific component" — with no direct test in any of them.
+*Rests on:* §2.3 (I3D-SAP, "Looking Beyond the Scale", the Journal of Robotic Surgery
+explainable-ML study, the markerless hand-tracking study, Lefor et al.) and its negative
+finding; §2.2 for the separation from the label-validity critique.
+*Load-bearing:* this paragraph has to carry the transition from "textbook elsewhere" to
+"worth a paper here". If it reads as a literature list, ¶2 will have made our result look
+derivative.
 
-**Novelty framing, narrowed deliberately.** The review is explicit that the phenomenon is
-textbook and that we should not claim it. We claim the surgical instantiation and the
-quantification. Any sentence implying we discovered identity confounding is wrong.
+**¶4 — What a good score would have to beat.** The target is a noisy, training-dependent
+human judgment, not a fixed bar: pooled GRS inter-rater ICC 0.78 (Ilgen et al. 2015), but
+untrained raters as low as 0.26 with reliability not retained months later (Gawad et al.
+2019). Note also that the dataset's self-declared skill label tracks GRS poorly.
+*Rests on:* §4.3's revised ceiling passage; §3.1's label observation, itself a replication
+of Hendricks et al. and "Looking Beyond the Scale" (§2.2). Motivates the feature-free
+reference of §3.5 — if the label is noisy and the metric is not self-interpreting, claims
+need an explicit uninformative comparator.
+*Do not:* reintroduce "ceiling". The whole point of this paragraph is that there isn't one.
+
+**¶5 — Thesis and contributions.** The thesis: on this benchmark the sanctioned protocol
+lets a model succeed without measuring skill, and the confidence such models report is not
+usable for the deferral their deployment assumes. Four contributions:
+1. The protocol gap quantified with paired surgeon-level intervals — §4.1 (+0.49, +0.67,
+   +0.54, all excluding zero).
+2. A direct surgeon-identification test that distinguishes confounding from underfitting —
+   §4.2 (0.83-0.93 against chance near 0.13), answering Little et al. (§2.3).
+3. The first calibration and selective-prediction audit in this application — §4.5, §4.6.
+4. A zero-shot decision model evaluated against a one-feature baseline — §4.4.
+*Honesty constraints:* contribution 2 is a post-hoc diagnostic (§4.2) and the phrasing must
+not imply it was planned; contribution 4 must not imply an ordering between the methods
+(§4.4); the novelty claim is the surgical instantiation and quantification, never the
+mechanism.
 
 ### 2. Related work  (six paragraphs; ¶5 and ¶6 compressed to 3-4 sentences each)
 
