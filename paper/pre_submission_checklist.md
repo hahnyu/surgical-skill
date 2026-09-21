@@ -26,32 +26,37 @@ Each names what is currently unverified and what would close it.
   before submission would strengthen the two negative claims; neither is described as
   exhaustive in the text.
 
-- [x] **Verify every borrowed figure against its primary source — DONE for what is
-  reachable; two remain.** All figures attributed to prior work originally came from a
-  supplied literature review. Status as of 2026-09-20:
-
-  | Figure | Source | Status |
-  |---|---|---|
-  | Record-wise ~2% vs subject-wise ~7% (30 subjects) and 27% (2 subjects) | Saeb et al. 2017, GigaScience | **verified** against the article |
-  | Alzheimer's 99.8% (99.1-100.0) to 53.0% (43.1-64.8); seizure 79.1% (78.8-79.4) to 65.1% (61.3-69.1) | Brookshire et al. 2024, Frontiers | **verified**; more precise than the review stated, and the draft now uses the exact figures |
-  | 294 papers across 17 fields | Kapoor and Narayanan 2023, Patterns | **verified** via Europe PMC: "17 fields where leakage has been found, collectively affecting 294 papers". The preprint's 329 is not used |
-  | CCC -0.03 (+/-0.08); best baselines 0.22 | "Looking Beyond the Scale", arXiv 2608.17519 | **verified** against the full text. Authors: Hoffmann, von Bechtolsheim, Speidel, Hisey. Not in the abstract — only the full text |
-  | 52.3% under leave-one-subject-out; the "surgeon-specific component" quote | Constans et al. 2026, IJCARS (PubMed 42616309) | **verified** via Europe PMC, quote confirmed verbatim |
-  | 25% false-positive reduction; 66% workload reduction | Dvijotham et al. 2023, Nature Medicine (CoDoC) | **verified** via Europe PMC abstract |
-  | ICC 0.26 untrained; 0.76 post-training; retention -0.17 to 0.70 | Gawad et al. 2019, J Surg Educ | **verified** via Europe PMC. Note: retention is *variable*, not monotonically lost, so the draft now cites the authors' own summary rather than implying decay |
-  | 0.64-0.72 inter-rater reliability | Martin et al. 1997, Br J Surg | **verified** earlier via Europe PMC |
-  | **ICC 0.78 (95% CI 0.71-0.83), 23 studies** | **Ilgen et al. 2015, Medical Education** | **NEEDS LIBRARY ACCESS.** Citation metadata independently confirmed (doi 10.1111/medu.12621, 49(2):161-173, 45 studies) but the figure itself is unconfirmed against the primary abstract; Medical Education is paywalled and Europe PMC returned 502/503 on two attempts. **This is the most load-bearing unverified number in the draft** — §1 and §4.3 both compare our agreement results against it. Check via Cornell library access |
-  | I3D-SAP per-task accuracies | IJCARS | **not needed** — the draft describes them qualitatively and quotes no figure |
-
-  Rule going forward: a verified figure and an unverified one must not be presented alike.
-  The only unverified figure now in the draft is Ilgen's 0.78, and it is flagged here rather
-  than silently equated with the rest.
-
-- [ ] **Resolve incomplete citations to venue and DOI:** I3D-SAP, VBA-Net, ZEAL, SurgiQ,
-  the Journal of Robotic Surgery explainable-ML study, and the markerless hand-tracking
-  study (PubMed 42616309).
-- [ ] **Confirm preprint status** for the 2026 arXiv items before publication; several may
-  have appeared in a venue since.
+- [x] **Verify every borrowed figure — DONE, all reachable sources confirmed.** Full
+  register with per-citation status in `paper/citations.md`. Every quantitative figure
+  attributed to prior work has now been checked against a primary record; **nothing remains
+  paywalled or unverified.** Ilgen et al., the last open item, was resolved through the
+  PubMed-hosted abstract (PMID 25626747), which made the journal paywall irrelevant.
+  Four corrections came out of this pass, all applied to both manuscripts:
+  - **Ilgen et al. and Martin et al. do not name the coefficient they pooled.** Neither is
+    strictly an ICC, so our comparison against ICC(2,1) is approximate; the text now says so
+    and no longer labels either figure "ICC".
+  - **Chen et al. 2026 is in the International Journal of Surgery, not IJCARS** as the
+    supplied review stated. Venue corrected.
+  - **van Amsterdam et al. is published in IEEE TBME** (10.1109/TBME.2021.3054828), not a
+    preprint; cite the journal version.
+  - **SurgiQ is a knowledge benchmark that includes a calibration analysis**, not a
+    dedicated calibration study. Characterisation corrected in §2.5.
+- [x] **Resolve incomplete citations — mostly done, four remain.** Eighteen references now
+  carry a verified venue and DOI. Still unresolved and listed in `paper/citations.md`:
+  Gao et al. 2014 (MICCAI M2CAI workshop, no DOI located), ZEAL, the Forbes critique, and
+  the three Jev evaluations (which need dated URLs and an explicit non-peer-reviewed
+  designation in the reference list, not only in the body text).
+- [x] **Confirm preprint versus published status — DONE.** Checked against the arXiv API.
+  Seven cited arXiv items carry no `journal_ref` and are preprints as of 2026-09-21.
+  **One caveat:** "Trust or Escalate" is cited as ICLR 2025 on the strength of the supplied
+  review, but arXiv records no journal reference; confirm before citing the venue.
+- [x] **Jev version-string caveat reads correctly.** §2.6 states that the independent
+  evaluations "identify the model by version strings that may not correspond exactly to the
+  build we pinned, so we treat them as evidence about the model family rather than as
+  replications of our setup", alongside the bolded non-peer-reviewed designation.
+- [x] **Regenerate tables and figures — DONE at this commit.** `paper/tables.md`,
+  `fig1_protocol_gap.png`, the three evaluation figures and the six supplementary
+  feature figures were all rebuilt from the committed scripts.
 
 ## Model and data provenance
 

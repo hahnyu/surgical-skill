@@ -97,9 +97,9 @@ limitation to engineer away rather than as a quantity to measure.
 
 Judging such a system also requires care about the target it is fitted to. The reference
 standard is a human rating, and human ratings of technical skill are neither perfectly
-reliable nor uniformly so: pooled inter-rater reliability for global rating scales in
-simulation-based assessment has been reported at ICC 0.78 [Ilgen et al. 2015], while
-untrained raters have been measured at 0.26, with the benefit of rater training lost during
+reliable nor uniformly so: pooled inter-rater reliability for global rating scales
+in simulation-based assessment has been reported at 0.78 (95% CI 0.71-0.83, 23 studies)
+[Ilgen et al. 2015], while untrained raters have been measured at 0.26, with the benefit of rater training lost during
 periods of non-use [Gawad et al. 2019]. On this benchmark specifically, the self-declared
 skill labels track the expert ratings poorly [Hendricks et al. 2024]. A model here is
 therefore fitted to a noisy and training-dependent judgment rather than to a fixed standard.
@@ -173,10 +173,11 @@ the benchmark.
 That accuracy falls under leave-one-user-out is not news in this literature. What differs is
 the explanation offered.
 
-I3D-SAP [IJCARS] reports near-perfect supertrial-out accuracy across the three tasks, a
-significant drop under user-out evaluation, and near-chance transfer to an external dataset,
-concluding that generalisation to unseen surgeons is limited and calling for
-"surgeon-invariant feature learning"; the goal is named, the mechanism is not measured.
+An interpretable whole-stream video framework [Chen et al. 2026] reports near-perfect
+supertrial-out accuracy across the three tasks, a significant drop under user-out
+evaluation, and near-chance transfer to an external dataset, concluding that generalisation
+to unseen surgeons is limited and calling for "surgeon-invariant feature learning"; the goal
+is named, the mechanism is not measured.
 "Looking Beyond the Scale" [2026] evaluates GRS prediction under a strict
 disjoint-participant protocol and reports a concordance correlation of -0.03 (+/-0.08) for a
 supervised model trained and evaluated entirely on JIGSAWS, below chance, against 0.22 for
@@ -257,9 +258,10 @@ post one while committing larger absolute errors than that uninformative predict
 
 ### 2.5 Calibration and selective prediction: a borrowed lineage
 
-Calibration has begun to receive attention in surgery: SurgiQ [2026] evaluates how well
-large language models are calibrated on surgical knowledge question-answering. That is a
-different setting from ours. We located no calibration or selective-prediction study of a
+Calibration has begun to receive attention in surgery: SurgiQ [2026] benchmarks large
+language models on surgical knowledge questions and includes a calibration analysis,
+reporting that even strong models make confident mistakes on plausible distractors. That is
+a different setting from ours. We located no calibration or selective-prediction study of a
 surgical *skill assessment* model built from motion, kinematic or video data, and surgical
 work on confidence-gated deferral is correspondingly thin. The
 methodological lineage we draw on is therefore from diagnostic imaging and intensive care,
@@ -592,11 +594,12 @@ from zero on the other two tasks for both paths (ridge 0.20 and 0.00; zero-shot 
 of agreement span roughly ±11 points on suturing and needle-passing against ±7 on
 knot-tying — that is, on two of three tasks the disagreement between model and rater is
 about as large as the full spread of the scale. For context, pooled inter-rater reliability for
-global rating scales in simulation-based assessment is ICC 0.78 (95% CI 0.71-0.83, 23
-studies; Ilgen et al. 2015), with the original OSATS report giving 0.64-0.72 (Martin et
-al. 1997). Our strongest agreement, 0.73 for the zero-shot path on knot-tying, sits below
-that pooled figure and carries an interval (0.53-0.85) wide enough to be uninformative
-about the comparison. We avoid the language of a ceiling: rater reliability is not a fixed
+global rating scales in simulation-based assessment has been reported at 0.78 (95% CI
+0.71-0.83, 23 studies; Ilgen et al. 2015), with the original OSATS report giving 0.64-0.72
+(Martin et al. 1997). Neither source names the coefficient it pooled, so neither is
+strictly an ICC(2,1) and both comparisons are approximate. Our strongest agreement, 0.73
+for the zero-shot path on knot-tying, sits below the pooled figure and carries an interval
+(0.53-0.85) wide enough to be uninformative about the comparison. We avoid the language of a ceiling: rater reliability is not a fixed
 bar but depends heavily on training, with untrained raters reported at ICC 0.26, rising to
 0.76 immediately after training but varying widely on later re-testing (-0.17 to 0.70),
 which the authors summarise as the benefit of training being "lost in periods of nonuse"
