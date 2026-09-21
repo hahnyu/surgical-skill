@@ -17,33 +17,62 @@ before submission.
 
 ## 1. Introduction
 
-> **Partial draft.** Only paragraph 3 is written, for review before the paragraphs around
-> it are built. Paragraphs 1, 2, 4 and 5 are planned in `paper/outline.md`.
+Automated assessment of surgical technical skill is motivated by the prospect of scalable,
+consistent feedback during training. If such a system is to inform training or
+credentialling decisions, it must generalise to surgeons who were not seen during its
+development. Whether current evaluation practice on the field's standard benchmark
+establishes that it does is the question we take up.
 
-*[¶1 — stakes: pending. Strictly conditional, two to three sentences.]*
+The concern is not specific to surgery. When a model is trained and tested on data from the
+same individuals, it can succeed by recognising the individual rather than the property of
+interest — a failure mode named identity confounding [Chaibub Neto et al. 2019] and
+demonstrated systematically by Saeb et al. [2017], whose activity-recognition error stayed
+near 2% when records from the same subjects appeared on both sides of the split, against
+roughly 7% when whole subjects were held out and 27% when only two subjects were available.
+Electroencephalography supplies the closest structural parallel to what we report below: an
+Alzheimer's classifier reaching 99.8% accuracy under segment-based holdout fell to 53.0% on
+unseen subjects, with a confidence interval spanning chance, and a seizure classifier fell
+from 79.1% to 65.1% [Brookshire et al. 2024]. The same pattern appears in speech, where
+depression detection degrades sharply on unseen speakers because the acoustic features are
+entangled with speaker identity. These are instances of shortcut learning [Geirhos et al.
+2020], and leakage of this general kind has been documented across 17 fields, collectively
+affecting 294 papers [Kapoor and Narayanan 2023]. We return to the methodological debate
+this literature provoked in §2.3.
 
-*[¶2 — the general phenomenon: pending. Cross-references §2.3 for Saeb et al. rather than
-re-explaining it.]*
+Judging such a system also requires care about the target it is fitted to. The reference
+standard is a human rating, and human ratings of technical skill are neither perfectly
+reliable nor uniformly so: pooled inter-rater reliability for global rating scales in
+simulation-based assessment has been reported at ICC 0.78 [Ilgen et al. 2015], while
+untrained raters have been measured at 0.26, with the benefit of rater training lost during
+periods of non-use [Gawad et al. 2019]. On this benchmark specifically, the self-declared
+skill labels track the expert ratings poorly [Hendricks et al. 2024]. A model here is
+therefore fitted to a noisy and training-dependent judgment rather than to a fixed standard.
+Two consequences follow for how results should be read. Agreement statistics cannot be
+weighed against a single fixed bar. And a reported accuracy or correlation is not
+self-interpreting: it needs an explicit comparison with a predictor that uses no input at
+all, a point we return to in §3.5 with a concrete demonstration of how misleading its
+absence can be.
 
-That performance falls when the held-out surgeon is genuinely unseen is not in dispute; it
-has been reported repeatedly on this benchmark. What has not settled is why. Three studies
-of JIGSAWS attribute the same gap to three different causes: limited generalisation,
-answered by a call for surgeon-invariant features; the quality of the dataset's
-representations and annotations; and an absence of subject-independent validation in
-earlier work. A fourth, on open-surgery hand tracking rather than robot kinematics, comes
-closest to the account we pursue, describing its own gap as quantifying "the
-surgeon-specific component captured by video-level splits" — and stops there. Three
-different attributions for one observation is the signature of an explanation that has not
-been tested, and the fourth study sharpens the point by naming a mechanism it does not
-measure. The test is inexpensive: train the same features to predict which surgeon
-performed the trial, and read off how much identity is recoverable. To our knowledge no
-surgical skill assessment study has run it. The gap has been treated as a limitation to
-engineer away rather than as a quantity to measure.
-
-*[¶4 — what a good score must beat: pending. No "ceiling" language.]*
-
-*[¶5 — thesis and contributions: pending. Four contributions, with the three honesty
-constraints recorded in the outline.]*
+This paper asks what a skill model evaluated on JIGSAWS is actually measuring, and whether
+the confidence such a model reports would support the human-in-the-loop use these systems
+are proposed for. We evaluate two prediction paths on identical information — a
+conventional baseline of 16 kinematic features with ridge and logistic regression, and a
+commercial zero-shot decision model given the same features rendered as text — under both
+protocols the benchmark sanctions. We make four contributions. First, we quantify the
+protocol gap with paired surgeon-level intervals: changing only the evaluation protocol,
+with features, model and data held constant, removes at least a third of the reported
+skill-classification accuracy (§4.1). Second, in a post-hoc diagnostic, we show that the
+same features identify which of eight surgeons performed a held-out trial with accuracy
+between 0.83 and 0.93 against chance rates near 0.13, which distinguishes identity
+confounding from the underfitting explanation that a performance gap alone leaves open
+(§4.2). Third, we report what is to our knowledge the first calibration and
+selective-prediction audit of a surgical skill assessment model built from motion data,
+finding both paths overconfident on unseen surgeons and neither path's confidence able to
+identify the trials it gets wrong (§4.5, §4.6). Fourth, we benchmark both against a
+single-feature regression on trial duration, which matches them on the one task of three
+where any cross-surgeon signal survives (§4.4). We do not claim to have discovered identity
+confounding: the mechanism is well established elsewhere, and what we contribute is its
+demonstration, quantification and consequences in this setting.
 
 ## 2. Related work
 
@@ -88,14 +117,17 @@ the benchmark.
 That accuracy falls under leave-one-user-out is not news in this literature. What differs is
 the explanation offered.
 
-I3D-SAP [IJCARS] reports near-ceiling supertrial-out accuracy across the three tasks, a
+I3D-SAP [IJCARS] reports near-perfect supertrial-out accuracy across the three tasks, a
 significant drop under user-out evaluation, and near-chance transfer to an external dataset,
 concluding that generalisation to unseen surgeons is limited and calling for
 "surgeon-invariant feature learning"; the goal is named, the mechanism is not measured.
 "Looking Beyond the Scale" [2026] evaluates GRS prediction under a strict
-disjoint-participant protocol and reports a concordance correlation of about -0.03, below
-chance, having ruled out model-side causes through an extensive architecture and
-hyperparameter search, and attributes the failure to representation and annotation quality.
+disjoint-participant protocol and reports a concordance correlation of -0.03 (+/-0.08) for a
+supervised model trained and evaluated entirely on JIGSAWS, below chance, against 0.22 for
+its best baselines; having ruled out model-side causes through an extensive architecture
+and hyperparameter search, it attributes the failure to the annotations, which it reports
+"lack a consistent ordering with respect to the visual features that encode actual skill
+differences".
 A recent explainable-machine-learning study using rich kinematic features [Journal of
 Robotic Surgery, 2026] criticises prior JIGSAWS work for lacking subject-independent
 validation — the same complaint, again without a direct test. Lefor et al. [2020] earlier
@@ -497,8 +529,10 @@ studies; Ilgen et al. 2015), with the original OSATS report giving 0.64-0.72 (Ma
 al. 1997). Our strongest agreement, 0.73 for the zero-shot path on knot-tying, sits below
 that pooled figure and carries an interval (0.53-0.85) wide enough to be uninformative
 about the comparison. We avoid the language of a ceiling: rater reliability is not a fixed
-bar but depends heavily on training, with untrained raters reported at ICC 0.26 and trained
-reliability not retained after several months (Gawad et al. 2019). The target these models
+bar but depends heavily on training, with untrained raters reported at ICC 0.26, rising to
+0.76 immediately after training but varying widely on later re-testing (-0.17 to 0.70),
+which the authors summarise as the benefit of training being "lost in periods of nonuse"
+(Gawad et al. 2019). The target these models
 are fitted to is therefore itself noisy, and the reading we take is simply that no method
 here demonstrated agreement comparable to trained human raters on any task.
 

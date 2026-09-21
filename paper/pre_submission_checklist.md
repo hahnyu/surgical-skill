@@ -15,13 +15,27 @@ Each names what is currently unverified and what would close it.
 - [ ] **Systematic search backing the §2.5 negative claim**, now narrowed to "no
   calibration or selective-prediction study of a surgical *skill assessment* model built
   from motion, kinematic or video data". SurgiQ is the known near-miss and is cited.
-- [ ] **Verify every borrowed figure against its primary source.** All bibliographic
-  details and quantitative figures attributed to prior work come from a supplied
-  literature review and have not been checked by us. Specifically: Ilgen et al. ICC 0.78
-  (0.71-0.83); Gawad et al. ICC 0.26 and the retention figures; Saeb et al. error rates;
-  Brookshire et al. 99%-to-chance and 79.1%-to-65.1%; the markerless hand-tracking 52.3%;
-  "Looking Beyond the Scale" CCC -0.03; CoDoC's 25% false-positive reduction; Kapoor and
-  Narayanan's 294 papers across 17 fields (the Patterns count, not the preprint's 329).
+- [x] **Verify every borrowed figure against its primary source — DONE for what is
+  reachable; two remain.** All figures attributed to prior work originally came from a
+  supplied literature review. Status as of 2026-09-20:
+
+  | Figure | Source | Status |
+  |---|---|---|
+  | Record-wise ~2% vs subject-wise ~7% (30 subjects) and 27% (2 subjects) | Saeb et al. 2017, GigaScience | **verified** against the article |
+  | Alzheimer's 99.8% (99.1-100.0) to 53.0% (43.1-64.8); seizure 79.1% (78.8-79.4) to 65.1% (61.3-69.1) | Brookshire et al. 2024, Frontiers | **verified**; more precise than the review stated, and the draft now uses the exact figures |
+  | 294 papers across 17 fields | Kapoor and Narayanan 2023, Patterns | **verified** via Europe PMC: "17 fields where leakage has been found, collectively affecting 294 papers". The preprint's 329 is not used |
+  | CCC -0.03 (+/-0.08); best baselines 0.22 | "Looking Beyond the Scale", arXiv 2608.17519 | **verified** against the full text. Authors: Hoffmann, von Bechtolsheim, Speidel, Hisey. Not in the abstract — only the full text |
+  | 52.3% under leave-one-subject-out; the "surgeon-specific component" quote | Constans et al. 2026, IJCARS (PubMed 42616309) | **verified** via Europe PMC, quote confirmed verbatim |
+  | 25% false-positive reduction; 66% workload reduction | Dvijotham et al. 2023, Nature Medicine (CoDoC) | **verified** via Europe PMC abstract |
+  | ICC 0.26 untrained; 0.76 post-training; retention -0.17 to 0.70 | Gawad et al. 2019, J Surg Educ | **verified** via Europe PMC. Note: retention is *variable*, not monotonically lost, so the draft now cites the authors' own summary rather than implying decay |
+  | 0.64-0.72 inter-rater reliability | Martin et al. 1997, Br J Surg | **verified** earlier via Europe PMC |
+  | **ICC 0.78 (95% CI 0.71-0.83), 23 studies** | **Ilgen et al. 2015, Medical Education** | **NEEDS LIBRARY ACCESS.** Citation metadata independently confirmed (doi 10.1111/medu.12621, 49(2):161-173, 45 studies) but the figure itself is unconfirmed against the primary abstract; Medical Education is paywalled and Europe PMC returned 502/503 on two attempts. **This is the most load-bearing unverified number in the draft** — §1 and §4.3 both compare our agreement results against it. Check via Cornell library access |
+  | I3D-SAP per-task accuracies | IJCARS | **not needed** — the draft describes them qualitatively and quotes no figure |
+
+  Rule going forward: a verified figure and an unverified one must not be presented alike.
+  The only unverified figure now in the draft is Ilgen's 0.78, and it is flagged here rather
+  than silently equated with the rest.
+
 - [ ] **Resolve incomplete citations to venue and DOI:** I3D-SAP, VBA-Net, ZEAL, SurgiQ,
   the Journal of Robotic Surgery explainable-ML study, and the markerless hand-tracking
   study (PubMed 42616309).
