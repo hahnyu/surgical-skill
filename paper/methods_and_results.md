@@ -15,6 +15,36 @@ before submission.
 
 ---
 
+## 1. Introduction
+
+> **Partial draft.** Only paragraph 3 is written, for review before the paragraphs around
+> it are built. Paragraphs 1, 2, 4 and 5 are planned in `paper/outline.md`.
+
+*[¶1 — stakes: pending. Strictly conditional, two to three sentences.]*
+
+*[¶2 — the general phenomenon: pending. Cross-references §2.3 for Saeb et al. rather than
+re-explaining it.]*
+
+That performance falls when the held-out surgeon is genuinely unseen is not in dispute; it
+has been reported repeatedly on this benchmark. What has not settled is why. Three studies
+of JIGSAWS attribute the same gap to three different causes: limited generalisation,
+answered by a call for surgeon-invariant features; the quality of the dataset's
+representations and annotations; and an absence of subject-independent validation in
+earlier work. A fourth, on open-surgery hand tracking rather than robot kinematics, comes
+closest to the account we pursue, describing its own gap as quantifying "the
+surgeon-specific component captured by video-level splits" — and stops there. Three
+different attributions for one observation is the signature of an explanation that has not
+been tested, and the fourth study sharpens the point by naming a mechanism it does not
+measure. The test is inexpensive: train the same features to predict which surgeon
+performed the trial, and read off how much identity is recoverable. To our knowledge no
+surgical skill assessment study has run it. The gap has been treated as a limitation to
+engineer away rather than as a quantity to measure.
+
+*[¶4 — what a good score must beat: pending. No "ceiling" language.]*
+
+*[¶5 — thesis and contributions: pending. Four contributions, with the three honesty
+constraints recorded in the outline.]*
+
 ## 2. Related work
 
 ### 2.1 The benchmark and its two sanctioned protocols
