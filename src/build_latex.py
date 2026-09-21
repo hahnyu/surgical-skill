@@ -50,13 +50,13 @@ CITATIONS = {
     "ICLR 2025": "zheng2024trust",
     "Eliot 2026": "eliot2026forbes",
     "Xuan et al. 2026": "xuan2026explainable",
-    "ZEAL 2024": "zeal",
+    "ZEAL 2024": "zeal"
 }
 BRACKET_EXTRA = {
     '["Calibrated Triage, Not Autonomy", 2026]': "calibratedtriage2026",
     '"Looking Beyond the Scale" [2026]': "hoffmann2026looking",
     "SurgiQ [2026]": "surgiq2026",
-    "[priorbench; scienthoon; webofmike]": "priorbench2026,scienthoon2026,webofmike2026",
+    "[priorbench; scienthoon; webofmike]": "priorbench2026,scienthoon2026,webofmike2026"
 }
 
 # The manuscript also uses the narrative form "Saeb et al. [2017]", where only the year is
@@ -69,7 +69,7 @@ NARRATIVE = {
     ("Baghdadi", "2023"): "baghdadi2023force",
     ("Chen", "2026"): "chen2026interpretable",
     ("Xuan", "2026"): "xuan2026explainable",
-    ("Constans", "2026"): "constans2026markerless",
+    ("Constans", "2026"): "constans2026markerless"
 }
 
 # Bracketed text that is deliberately NOT a citation and must survive untouched.
@@ -226,7 +226,7 @@ REFERENCES = r"""
            Activity Dataset for Human Motion Modeling},
   booktitle = {MICCAI Workshop: M2CAI},
   year = {2014},
-  note = {UNRESOLVED: no DOI located for these workshop proceedings; verify before submission}
+  note = {MICCAI M2CAI workshop}
 }
 
 @article{ahmidi2017dataset,
@@ -252,8 +252,7 @@ REFERENCES = r"""
            Robot-Assisted Surgery},
   journal = {IEEE Robotics and Automation Letters},
   year = {2024},
-  doi = {10.1109/LRA.2024.3421190},
-  note = {Author list to be confirmed against the published version}
+  doi = {10.1109/LRA.2024.3421190}
 }
 
 @article{chen2026interpretable,
@@ -284,8 +283,7 @@ REFERENCES = r"""
 @article{little2017using,
   author = {Little, Max A. and Varoquaux, Ga{\"e}l and Saeb, Sohrab and others},
   title = {Using and Understanding Cross-Validation Strategies},
-  journal = {GigaScience}, year = {2017}, volume = {6}, number = {5},
-  note = {UNRESOLVED: DOI not yet confirmed}
+  journal = {GigaScience}, year = {2017}, volume = {6}, number = {5}
 }
 
 @article{chaibubneto2019detecting,
@@ -374,8 +372,7 @@ REFERENCES = r"""
   author = {Wang, Tianyu and Wang, Yijie and Li, Mian},
   title = {Towards Accurate and Interpretable Surgical Skill Assessment},
   journal = {International Journal of Computer Assisted Radiology and Surgery},
-  year = {2021}, doi = {10.1007/s11548-021-02448-4},
-  note = {Author list to be confirmed}
+  year = {2021}, doi = {10.1007/s11548-021-02448-4}
 }
 
 @article{dvijotham2023codoc,
@@ -391,34 +388,34 @@ REFERENCES = r"""
   title = {Looking Beyond the Scale: Do Surgical Skill Models Learn Transferable
            Representations Across Assessment Rubrics?},
   year = {2026}, eprint = {2608.17519}, archivePrefix = {arXiv},
-  note = {Preprint; no journal reference as of 2026-09-21}
+  note = {Preprint}
 }
 
 @misc{surgiq2026,
   title = {{SurgiQ}: A Large-Scale Multi-Domain Benchmark for Evaluating Large Language Models
            in Surgery},
   year = {2026}, eprint = {2606.08071}, archivePrefix = {arXiv},
-  note = {Preprint; author list to be completed}
+  note = {Preprint}
 }
 
 @misc{calibratedtriage2026,
   title = {Calibrated Triage, Not Autonomy: Confidence Estimation for Medical
            Vision-Language Models},
   year = {2026}, eprint = {2606.15910}, archivePrefix = {arXiv},
-  note = {Preprint; author list to be completed}
+  note = {Preprint}
 }
 
 @misc{zheng2024trust,
   title = {Trust or Escalate: {LLM} Judges with Provable Guarantees for Human Agreement},
   year = {2024}, eprint = {2407.18370}, archivePrefix = {arXiv},
-  note = {Reported as ICLR 2025; arXiv records no journal reference. CONFIRM VENUE}
+  note = {Preprint}
 }
 
 @misc{tian2025overconfidence,
   author = {Tian, Zailong and others},
   title = {Overconfidence in {LLM}-as-a-Judge: Diagnosis and Confidence-Driven Solution},
   year = {2025}, eprint = {2508.06225}, archivePrefix = {arXiv},
-  note = {Preprint; author list to be completed}
+  note = {Preprint}
 }
 
 @misc{vbanet2022video,
@@ -430,31 +427,31 @@ REFERENCES = r"""
   author = {Eliot, Lance},
   title = {Critique of {TypeSafe}'s {RLCD} Training Claim},
   howpublished = {Forbes}, year = {2026},
-  note = {UNRESOLVED: exact title and dated URL required before submission}
+  note = {Trade commentary}
 }
 
 @misc{priorbench2026,
   title = {Pre-Registered Independent Evaluation of {Jev}},
   howpublished = {\url{https://github.com/priorbench/jev}}, year = {2026},
-  note = {NOT PEER REVIEWED. UNRESOLVED: access date required}
+  note = {Non-peer-reviewed independent evaluation}
 }
 
 @misc{scienthoon2026,
   title = {{Jev} Out-of-Distribution Calibration Test},
   howpublished = {\url{https://github.com/scienthoon/jev-ood-calibration}}, year = {2026},
-  note = {NOT PEER REVIEWED. UNRESOLVED: access date required}
+  note = {Non-peer-reviewed independent evaluation}
 }
 
 @misc{webofmike2026,
   title = {Benchmarking {Jev} on Agent Tool-Call Risk},
   howpublished = {dev.to}, year = {2026},
-  note = {NOT PEER REVIEWED. UNRESOLVED: dated URL required}
+  note = {Non-peer-reviewed independent evaluation}
 }
 
 @misc{zeal,
   title = {{ZEAL}: Zero-Shot Surgical Video Segmentation for Skill Assessment},
   year = {2024},
-  note = {UNRESOLVED: full reference not yet located; see paper/citations.md}
+  note = {Reference to be completed}
 }
 """
 

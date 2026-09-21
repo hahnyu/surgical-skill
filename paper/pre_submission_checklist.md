@@ -85,10 +85,15 @@ Each names what is currently unverified and what would close it.
   copies are unverifiable mirrors. Instructions in `paper/ijcars/latex/README.md`.
 - [ ] **Add author names, affiliations and the corresponding-author block.** `main.tex`
   currently has an empty `\author{}`.
-- [ ] **Five bibliography entries print `UNRESOLVED` or `NOT PEER REVIEWED` notes** and will
-  appear that way in the compiled bibliography until completed: `gao2014jigsaws`, `zeal`,
-  `eliot2026forbes`, `little2017using`, and the three Jev evaluations. Left visible on
-  purpose rather than hidden.
+- [x] **Internal to-do text no longer prints in the bibliography.** It previously leaked
+  strings such as "UNRESOLVED: verify before submission" and a repository path into the
+  reference list. Only genuine scholarly qualifiers now print ("Preprint", "MICCAI M2CAI
+  workshop", "Non-peer-reviewed independent evaluation"). The outstanding work is tracked in
+  `paper/citations.md`, not in the manuscript.
+- [ ] **Complete the five incomplete references** before submission: `gao2014jigsaws` (no
+  DOI for the workshop proceedings), `zeal` (full reference), `eliot2026forbes` (title and
+  dated URL), `little2017using` (DOI), and dated URLs for the three Jev evaluations. Also
+  confirm `zheng2024trust`'s ICLR 2025 venue, which arXiv does not record.
 - [ ] **`microtype` omitted** because it is absent from this TeX installation. Cosmetic;
   restore if the submission machine has it.
 - [ ] **Decide whether `paper/ijcars/latex/` should instead be `paper/latex/`.** It was

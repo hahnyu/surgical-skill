@@ -332,7 +332,9 @@ than treated as interchangeable.
 *Source: dataset facts are enforced by assertions in `src/loaders.py` and its tests rather
 than logged as experiments.*
 
-### 3.2 Features
+### 3.2 Features  {#S1}
+
+*Referenced from the main text as **S1**.*
 
 We compute 16 descriptive motion features per trial from the patient-side manipulator
 channels — the instruments inside the workspace — rather than the surgeon-side console
@@ -371,7 +373,9 @@ movement count, because threshold crossings remain unstable after filtering.
 *Source: `configs/features.yaml`; feature-matrix construction is tested in
 `tests/test_features.py`.*
 
-### 3.3 Two prediction paths
+### 3.3 Two prediction paths  {#S2}
+
+*Referenced from the main text as **S2**.*
 
 **Baseline.** Ridge regression predicts GRS and multinomial logistic regression predicts
 the three-way skill label. Features are standardised inside a pipeline so that scaling
@@ -464,7 +468,9 @@ surgeons**, which is more informative than comparing two independently computed 
 *Source: `src/metrics.py`; the whole-surgeon property is pinned by
 `test_bootstrap_resamples_whole_surgeons_never_individual_trials`.*
 
-### 3.7 Protocol scrutiny
+### 3.7 Protocol scrutiny  {#S3}
+
+*Referenced from the main text as **S3**.*
 
 Two findings about our own protocol belong in the record, and they are distinct.
 
@@ -722,7 +728,9 @@ remove the mismatch and is the concrete design a follow-up should adopt.
 
 *Figure 3 (`eval_risk_coverage.png`); Table 5. Source: `kind=eval_selective`, `kind=eval_coverage`.*
 
-### 4.7 Robustness
+### 4.7 Robustness  {#S4}
+
+*Referenced from the main text as **S4**.*
 
 Conclusions do not depend on the filtering choice. Repeating the LOUO analysis on
 unfiltered features and at an 8 Hz cutoff leaves knot-tying positive throughout (+1.18 to
