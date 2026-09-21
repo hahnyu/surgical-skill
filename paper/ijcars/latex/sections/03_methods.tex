@@ -1,86 +1,21 @@
 \section{Methods}
 
-\subsection{Dataset}
+\subsection{Data, features and models}
 
-See Table 1.
+JIGSAWS comprises 103 usable trials from 8 surgeons across suturing, knot-tying and needle-passing, each rated on a modified OSATS instrument whose six 1-5 elements sum to a global rating score (GRS, 6-30). The metadata files, not the directory listing, are authoritative; surgeon G has no usable needle-passing trial, and GRS equals the sum of its elements on all 103 rows.
 
-We use JIGSAWS, a public dataset of robot-assisted surgical training trials recorded on a da Vinci system at 30 Hz. Eight surgeons performed three bench-top tasks --- suturing, knot-tying and needle-passing --- with up to five repetitions each. Each trial carries an expert rating on a modified OSATS instrument: six elements scored 1-5, whose sum is the global rating score (GRS), range 6-30. Each surgeon also carries a self-declared skill label (novice, intermediate, expert) reflecting hours of robotic experience.
+We compute 16 motion features per trial from the patient-side manipulator channels over the annotated task window, with tool-tip positions low-pass filtered once at 5 Hz before any derived quantity: task time, the correlation between the two instruments' speed profiles, and per instrument the path length, speed mean and standard deviation, mean acceleration, idle fraction below 1 mm/s, hull volume and gripper cycles. Thresholds were fixed before use and never tuned against outcomes; three features were removed before modelling for stated reasons unrelated to performance (S1).
 
-The per-task metadata files, rather than the directory listing, are authoritative for which trials are usable: the kinematics directories contain 40 files per task, but the metadata files list 39 suturing, 36 knot-tying and 28 needle-passing trials, 103 in total. The surplus recordings are excluded, and one of them is empty. Surgeon G contributes no usable needle-passing trial, so that task has seven surgeons rather than eight. We verified that GRS equals the sum of its six elements on all 103 rows, with no exceptions, which is what identifies the columns; the ordering of the six elements among themselves rests on the dataset's own readme and cannot be confirmed arithmetically, so we report no per-element result.
+The baseline applies ridge regression to GRS and multinomial logistic regression to the skill label, standardised within a pipeline so scaling uses training rows only; the ridge penalty is chosen inside each training set by leave-one-subject-out search, and the logistic regulariser is fixed at C = 1.0, a subject-level inner search being ill-defined when a class is held by two surgeons. The second path uses a commercial zero-shot decision model (jev-1.13.0), never trained, given the same 16 features rendered as ordinal phrases describing each feature's percentile within its task. No number, identifier or label is transmitted; tests enforce this. Seven five-level scoring questions are sent per trial and each trial was scored three times (S2).
 
-Per-task GRS standard deviations are 5.40 (suturing), 5.11 (knot-tying) and 4.82 (needle-passing). These set the scale against which prediction errors below should be read. We note that the self-declared skill label tracks the expert GRS rating poorly: one surgeon labelled expert has a mean GRS of 13.5 while one labelled novice has 19.1 (\texttt{addendum\_label\_vs\_grs}). The two targets are therefore reported separately throughout rather than treated as interchangeable.
+\subsection{Protocols, reference predictor and uncertainty}
 
-% PROVENANCE: Source: dataset facts are enforced by assertions in src/loaders.py and its tests rather
-than logged as experiments.*
+The two schemes hold out the \textit{i}-th repetition with every surgeon still in training, or a surgeon entirely. Official skill splits ship only for suturing; our generated folds reproduce them exactly there, verified by test. Every trial is predicted once per scheme.
 
-\subsection{Features}
+Claims are stated against a \textbf{feature-free reference} predicting each held-out trial with the mean GRS of its own training fold, so the headline quantity is the reduction in mean absolute error relative to that reference, in GRS points. \textbf{Interpretation rule, fixed before any interval was computed:} a method beats the reference only if the lower bound of its 95\% interval exceeds zero. With eight surgeons this is a weak test and we treat it as suggestive. The zero-shot score is placed on the GRS scale by a line fitted within each training fold, and we record the sign of that slope per fold as a direction guard.
 
-We compute 16 descriptive motion features per trial from the patient-side manipulator channels --- the instruments inside the workspace --- rather than the surgeon-side console channels. Features are computed over the annotated task window, defined as the first gesture start to the last gesture end from the trial's transcription; this window matches the one embedded in the official split filenames on all 39 suturing trials.
+All intervals resample \textbf{whole surgeons} with replacement (2000 resamples), never individual trials, with predictions held fixed; an interval therefore reflects which surgeons were evaluated, not refitting variability. For the central claim we bootstrap the between-protocol difference paired on the same resampled surgeons.
 
-Tool-tip positions are low-pass filtered once, before any derived quantity, with a zero-phase Butterworth filter at 5 Hz (second order per pass, applied forward and backward, so the gain at the cutoff is 0.5 and no time shift is introduced). The cutoff was selected to sit below the 8-12 Hz physiological tremor band and above the low-frequency content of voluntary movement; no JIGSAWS-specific value exists in the literature, so the choice is a judgment within a defensible range and is accompanied by sensitivity runs at no filtering and at 8 Hz.
+\subsection{Protocol scrutiny and pre-registration}
 
-The feature set comprises total task time; and per instrument, path length, mean and standard deviation of speed, mean acceleration magnitude, the fraction of time below a 1 mm/s motion threshold, convex-hull working volume, and the number of gripper open-close cycles; plus the correlation between the two instruments' speed profiles. Speed is computed by finite differences of position rather than from the recorded velocity channels, so it can be validated against hand-computed synthetic trajectories; on one trial the two agree at Pearson r = 0.88 and 0.93 for the two instruments, with finite-difference means within 5\% of the recorded means (\texttt{addendum\_speed\_validation}).
-
-All thresholds were fixed in \texttt{configs/features.yaml} before use and were never adjusted against any outcome. Three features that appeared in our initial plan were removed before modelling, each for a stated reason unrelated to predictive performance: maximum speed and maximum acceleration, because both are corrupted by single-frame position discontinuities (the largest is 26.9 mm within one 1/30 s frame against a typical 0.2 mm, and 47 of 206 arm-trials contain a step above 5 mm; \texttt{addendum\_position\_jumps}); spectral arc length, because whole-trial values correlate -0.83 with movement count and -0.81 with trial duration and therefore do not isolate smoothness (\texttt{addendum\_sparc\_confound}); and movement count, because threshold crossings remain unstable after filtering.
-
-% PROVENANCE: Source: configs/features.yaml; feature-matrix construction is tested in
-\texttt{tests/test\_features.py}.*
-
-\subsection{Two prediction paths}
-
-\textbf{Baseline.} Ridge regression predicts GRS and multinomial logistic regression predicts the three-way skill label. Features are standardised inside a pipeline so that scaling parameters are estimated from training trials only. The ridge penalty is selected within each training set by leave-one-subject-out search over \{0.1, 1, 10, 100\}, which prevents the inner search from rewarding a model that recognises an individual surgeon's style. The logistic regulariser is fixed at C = 1.0 rather than searched: with two experts and two intermediates, a subject-level inner search can leave a training set containing no instance of a class, making the search ill-defined. This asymmetry between the two models follows from the data rather than from preference.
-
-\textbf{Zero-shot decision model.} The second path uses Jev (TypeSafe, model version pinned to \texttt{jev-1.13.0}), a commercial model that answers typed questions against a supplied state and returns a score with a probability per level and a confidence value. It is never trained. Because the model's documentation states that it does not count reliably and cannot judge whether two numeric values are close, no number is transmitted: each of the 16 features is rendered in code as one of five ordinal phrases describing its percentile within the same task (``typical of comparable attempts'', ``higher than most comparable attempts'', and so on). The state contains no trial identifier, no surgeon letter, no repetition index, no label and no digit; tests enforce each of these conditions. Seven scoring questions --- one overall and six OSATS elements, each with five ordered level descriptions --- are sent in a single request per trial. Each trial was scored three times, giving 309 requests. Every raw response is cached to disk before parsing, and the model version reported in each response is checked against the pinned version on every read.
-
-The rubric wording was authored before any trial was scored and was not revised afterwards. It was, however, written after we had seen the feature distributions and the baseline results, and it refers to completion time and pauses; this is a disclosed route by which the model's output could come to resemble a duration measure, and it bears on the interpretation in Section~4.4.
-
-% PROVENANCE: Source: configs/baseline.yaml, configs/jev.yaml; kind=regression,
-\texttt{kind=classification}.*
-
-\subsection{Evaluation protocol}
-
-JIGSAWS defines two cross-validation schemes. Leave-one-supertrial-out (LOSO) holds out the \textit{i}-th repetition across all surgeons, so every surgeon appears in both training and test data. Leave-one-user-out (LOUO) holds out all trials from one surgeon, so the test surgeon is unseen. Pre-computed skill-detection splits ship only for suturing; for the other two tasks we generate folds by the same documented rule. That generator reproduces the official suturing folds exactly --- identical training and test membership in all five LOSO and all eight LOUO folds --- which is verified by a test, so the generated folds instantiate the standard definition rather than approximating it.
-
-Every trial is predicted exactly once per scheme, by a model fitted without it. We report both schemes throughout. The contrast between them is the paper's primary object of study.
-
-% PROVENANCE: Source: src/loaders.py; fold equivalence is pinned by
-\texttt{test\_generated\_splits\_match\_official\_suturing}.*
-
-\subsection{Reference predictor and the headline error metric}
-
-Predictive claims are stated against an explicit reference rather than against zero. The \textbf{feature-free reference} predicts every held-out trial with the mean GRS of its own training fold; it uses no motion information whatsoever. A model has demonstrated something only if its error falls below this reference's error.
-
-Our headline quantity is therefore the \textbf{reduction in mean absolute error relative to that reference}, in GRS points, positive meaning the model is better. This metric replaced the one we pre-registered, for a reason given in Section~3.7.
-
-\textbf{Interpretation rule, fixed before any interval was computed:} a method beats the reference only if the lower bound of the 95\% interval on its MAE reduction lies above zero. With eight surgeons this is a weak test, and we treat ``excludes zero'' as suggestive rather than as proof; no analysis selects models by it.
-
-To place Jev's ordinal score on the GRS scale, a single ordinary-least-squares line is fitted within each training fold and applied to the held-out trials, so the calibration uses no held-out information. Because a fitted line would silently rescue a score that ranked skill backwards, we record the sign of the fitted slope in every fold as a direction guard.
-
-% PROVENANCE: Source: kind=headline_mae_vs_reference, kind=jev_headline_mae_vs_reference,
-\texttt{kind=diagnostic\_feature\_free\_reference}.*
-
-\subsection{Uncertainty}
-
-Trials from one surgeon are not independent, so all intervals come from a bootstrap that resamples \textbf{whole surgeons} with replacement (2000 resamples, seed 0), never individual trials. Predictions are held fixed during resampling. An interval therefore expresses which surgeons happened to be evaluated; it does \textbf{not} express how a result would move if the model were refitted on different training data, and it does not capture that the eight surgeons are themselves a small and possibly unrepresentative sample. Resamples in which a statistic is undefined are counted and reported rather than silently dropped; for every regression result reported here that count is zero. For the paper's central claim we additionally bootstrap the LOSO-minus-LOUO difference \textbf{paired on the same resampled surgeons}, which is more informative than comparing two independently computed intervals.
-
-% PROVENANCE: Source: src/metrics.py; the whole-surgeon property is pinned by
-\texttt{test\_bootstrap\_resamples\_whole\_surgeons\_never\_individual\_trials}.*
-
-\subsection{Protocol scrutiny}
-
-Two findings about our own protocol belong in the record, and they are distinct.
-
-\textbf{Leakage was tested for and was not found.} Scaling parameters and hyperparameters are estimated inside training folds only, and held-out trials are never seen by any fitted object. Two tests verify this behaviourally rather than by inspection: replacing the labels of a test fold with nonsense leaves that fold's predictions bit-identical, and altering some test-fold features leaves the predictions for the remaining test trials unchanged. To confirm the tests can detect the failure they are designed for, a deliberately leaky variant --- standardising all rows before splitting --- moved untouched test-fold predictions by 16 GRS points where the correct pipeline moved them by exactly zero. We additionally refitted the regression 50 times per task and scheme under shuffled labels; every mean rank correlation was negative, which is the opposite of the direction leakage produces.
-
-\textbf{Separately, our pre-registered headline statistic proved uninterpretable under LOUO and was replaced.} We had pre-registered the pooled out-of-fold Spearman correlation. Under LOUO each fold contains one surgeon and the prediction is one constant per fold; surgeons differ in mean GRS, and a surgeon with a high mean receives a lower training-fold mean, so prediction and truth move in opposite directions across folds by construction. Measured, the feature-free reference scores -0.78 to -0.86 on this statistic. A LOUO correlation therefore cannot be read against zero. We report the MAE reduction of Section~3.5 as the headline and retain the correlations, always beside the reference value, never alone.
-
-No result was altered by either finding. The first is a negative check that passed; the second is a change of metric, and it is a post-hoc change (Section~4, preamble). We also note that the shuffled-label criterion we wrote was two-sided and so flagged two of six cells in the harmless negative direction; it was replaced with a one-sided criterion in a second configuration, with the original flags left on the record.
-
-% PROVENANCE: Source: kind=permutation_sentinel, kind=diagnostic_intercept_only; leakage behaviour
-is pinned by tests in \texttt{tests/test\_baseline.py}.*
-
-\subsection{Pre-registration}
-
-Analysis rules for each phase --- feature thresholds, both evaluation schemes, model families, the metrics, the bin counts, the coverage levels, and the interpretation rule of Section~3.5 --- were committed to a version-controlled log before the corresponding analysis was run. Where an analysis was instead added after seeing results, it is labelled as such in Section~4. Two such additions are material and are identified there: the surgeon-identifiability diagnostic, and the metric substitution of Section~3.7.
-
----
+Analysis rules for each stage were committed to a version-controlled log before the corresponding analysis ran; analyses added afterwards are labelled post hoc below. Two findings about our own protocol belong on record. \textbf{Leakage was tested for and not found:} altering test-fold labels leaves that fold's predictions bit-identical, a deliberately leaky variant moves untouched predictions by 16 GRS points where ours moves them by zero, and 50 shuffled-label refits per cell gave uniformly negative mean correlations, the opposite of leakage. \textbf{Separately, our pre-registered headline statistic proved uninterpretable and was replaced:} under leave-one-user-out each fold is one surgeon and the prediction one constant, so the feature-free reference scores -0.78 to -0.86 on pooled rank correlation by construction. We therefore report error against that reference, retaining correlations only beside it. This substitution is itself post hoc (S3).

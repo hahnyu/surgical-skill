@@ -48,37 +48,27 @@ miscalibration on JIGSAWS}
 \begin{figure*}[htbp]
 \centering
 \includegraphics[width=1.0\textwidth]{fig1_protocol_gap.png}
-\caption{The protocol gap, its explanation, and what survives it. \textbf{A}: three-way skill classification accuracy under each protocol, with the majority-class rate marked. \textbf{B}: accuracy of identifying which surgeon performed a held-out trial, from the same features, with chance marked. \textbf{C}: reduction in GRS error relative to a feature-free reference under leave-one-user-out. All intervals are 95\%, resampling whole surgeons.}
+\caption{\textbf{A} skill classification accuracy under each protocol, dashed line the majority-class rate. \textbf{B} accuracy of identifying the surgeon from the same features, dashed line chance. \textbf{C} reduction in GRS error against the feature-free reference, held-out surgeon. Intervals 95\%, resampling surgeons.}
 \label{fig:protocol_gap}
 \end{figure*}
 
 \begin{figure*}[htbp]
 \centering
 \includegraphics[width=1.0\textwidth]{eval_reliability.png}
-\caption{Reliability diagrams. Each path is judged against the target it was given, so the panels are not a head-to-head comparison. Points below the diagonal are overconfident.}
+\caption{Reliability. Each path is judged against its own target, so the panels are not a head-to-head comparison. Points below the diagonal are overconfident.}
 \label{fig:reliability}
 \end{figure*}
 
 \begin{figure*}[htbp]
 \centering
 \includegraphics[width=0.92\textwidth]{eval_risk_coverage.png}
-\caption{Risk--coverage curves. The coloured curve should fall below the dotted random-order reference as coverage drops if confidence is informative; the dashed line is the best any ordering could achieve.}
+\caption{Risk--coverage. If confidence were informative the coloured curve would fall below the dotted random-order reference as coverage drops; dashed is the best possible.}
 \label{fig:risk_coverage}
-\end{figure*}
-
-\begin{figure*}[htbp]
-\centering
-\includegraphics[width=1.0\textwidth]{eval_bland_altman_LOUO.png}
-\caption{Bland--Altman agreement on held-out surgeons. The downward slope is partly intrinsic for any weak predictor and is not independent evidence.}
-\label{fig:bland_altman}
 \end{figure*}
 
 
 \input{tables/table1}
 \input{tables/table2}
-\input{tables/table3}
-\input{tables/table4}
-\input{tables/table5}
 
 \bibliographystyle{plainnat}
 \bibliography{references}

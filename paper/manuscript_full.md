@@ -15,10 +15,14 @@ before submission.
 
 ---
 
-> **Venue-neutral full draft.** This is the complete, untrimmed manuscript, preserved as
-> the reference version. The IJCARS submission is a separate, shortened copy at
-> `paper/ijcars/manuscript.md`; edits made to fit that venue's length limit belong there,
-> not here.
+> **Electronic Supplementary Material (ESM) / full version.** This is the complete,
+> untrimmed manuscript. The IJCARS submission at `paper/ijcars/manuscript.md` is compressed
+> to that venue's 5,000-word all-inclusive limit and refers to this document as S1-S4 for
+> material removed from the main text: S1 feature definitions and the three features removed
+> before modelling; S2 the zero-shot state format, rubric and caching; S3 the full
+> protocol-scrutiny account, including the leakage tests and the headline-metric
+> substitution; S4 the robustness analyses across smoothing cutoffs and penalty grids.
+> Tables 1, 4 and 5 and the Bland-Altman figure also live here rather than in the main text.
 
 ## Abstract
 

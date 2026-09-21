@@ -46,10 +46,8 @@ CITATIONS = {
     "Baghdadi et al. 2023": "baghdadi2023force",
     "Zia and Essa 2018": "zia2018automated",
     "Wang et al. 2021": "wang2021towards",
-    "VBA-Net 2022": "vbanet2022video",
     "Dvijotham et al. 2023": "dvijotham2023codoc",
     "ICLR 2025": "zheng2024trust",
-    "Tian et al. 2025": "tian2025overconfidence",
     "Eliot 2026": "eliot2026forbes",
     "Xuan et al. 2026": "xuan2026explainable",
     "ZEAL 2024": "zeal",
@@ -80,22 +78,16 @@ NOT_CITATIONS = {"pre-declared", "post-hoc", "pre-declared design, post-hoc metr
 # Figures, in the order they are referenced.
 FIGURES = [
     ("fig1_protocol_gap.png", "fig:protocol_gap", 1.0,
-     "The protocol gap, its explanation, and what survives it. "
-     "\\textbf{A}: three-way skill classification accuracy under each protocol, with the "
-     "majority-class rate marked. \\textbf{B}: accuracy of identifying which surgeon "
-     "performed a held-out trial, from the same features, with chance marked. \\textbf{C}: "
-     "reduction in GRS error relative to a feature-free reference under leave-one-user-out. "
-     "All intervals are 95\\%, resampling whole surgeons."),
+     "\\textbf{A} skill classification accuracy under each protocol, dashed line the "
+     "majority-class rate. \\textbf{B} accuracy of identifying the surgeon from the same "
+     "features, dashed line chance. \\textbf{C} reduction in GRS error against the "
+     "feature-free reference, held-out surgeon. Intervals 95\\%, resampling surgeons."),
     ("eval_reliability.png", "fig:reliability", 1.0,
-     "Reliability diagrams. Each path is judged against the target it was given, so the "
-     "panels are not a head-to-head comparison. Points below the diagonal are overconfident."),
+     "Reliability. Each path is judged against its own target, so the panels are not a "
+     "head-to-head comparison. Points below the diagonal are overconfident."),
     ("eval_risk_coverage.png", "fig:risk_coverage", 0.92,
-     "Risk--coverage curves. The coloured curve should fall below the dotted random-order "
-     "reference as coverage drops if confidence is informative; the dashed line is the best "
-     "any ordering could achieve."),
-    ("eval_bland_altman_LOUO.png", "fig:bland_altman", 1.0,
-     "Bland--Altman agreement on held-out surgeons. The downward slope is partly intrinsic "
-     "for any weak predictor and is not independent evidence."),
+     "Risk--coverage. If confidence were informative the coloured curve would fall below "
+     "the dotted random-order reference as coverage drops; dashed is the best possible."),
 ]
 
 
@@ -196,8 +188,11 @@ def markdown_table_to_latex(block: list, label: str) -> str:
         r"\end{table}", ""])
 
 
+MAIN_TABLES = ("Table 2.", "Table 3.")   # the others move to the Supplementary Material
+
+
 def build_tables() -> list:
-    """Convert every table in paper/tables.md (generated from the log) to LaTeX."""
+    """Convert the main-text tables from paper/tables.md (generated from the log)."""
     text = TABLES_MD.read_text().split("\n")
     tables, current, title, caption = [], [], None, []
     for line in text + [""]:
@@ -212,6 +207,7 @@ def build_tables() -> list:
     if current:
         tables.append((title, current, " ".join(caption)))
 
+    tables = [t for t in tables if t[0].startswith(MAIN_TABLES)]
     written = []
     for i, (name, block, cap) in enumerate(tables, start=1):
         tex = markdown_table_to_latex(block, name)
@@ -225,10 +221,7 @@ def build_tables() -> list:
 
 REFERENCES = r"""
 @inproceedings{gao2014jigsaws,
-  author = {Gao, Yixin and Vedula, S. Swaroop and Reiley, Carol E. and Ahmidi, Narges and
-            Varadarajan, Balakrishnan and Lin, Henry C. and Tao, Lingling and Zappella, Luca
-            and B{\'e}jar, Benjam{\'\i}n and Yuh, David D. and Chen, Chi Chiung Grace and
-            Vidal, Ren{\'e} and Khudanpur, Sanjeev and Hager, Gregory D.},
+  author = {Gao, Yixin and Vedula, S. Swaroop and Reiley, Carol E. and others},
   title = {{JHU-ISI} Gesture and Skill Assessment Working Set ({JIGSAWS}): A Surgical
            Activity Dataset for Human Motion Modeling},
   booktitle = {MICCAI Workshop: M2CAI},
@@ -237,9 +230,7 @@ REFERENCES = r"""
 }
 
 @article{ahmidi2017dataset,
-  author = {Ahmidi, Narges and Tao, Lingling and Sefati, Shahin and Gao, Yixin and Lea, Colin
-            and Haro, Benjamin Bejar and Zappella, Luca and Khudanpur, Sanjeev and Vidal,
-            Ren{\'e} and Hager, Gregory D.},
+  author = {Ahmidi, Narges and Tao, Lingling and Sefati, Shahin and others},
   title = {A Dataset and Benchmarks for Segmentation and Recognition of Gestures in Robotic
            Surgery},
   journal = {IEEE Transactions on Biomedical Engineering},
@@ -256,8 +247,7 @@ REFERENCES = r"""
 }
 
 @article{hendricks2024exploring,
-  author = {Hendricks, Ashley and Panoff, Rebecca and Xiao, Yu and Wang, Wei and Wang, Jian
-            and Bobda, Christophe},
+  author = {Hendricks, Ashley and Panoff, Rebecca and Xiao, Yu and others},
   title = {Exploring the Limitations and Implications of the {JIGSAWS} Dataset for
            Robot-Assisted Surgery},
   journal = {IEEE Robotics and Automation Letters},
@@ -267,7 +257,7 @@ REFERENCES = r"""
 }
 
 @article{chen2026interpretable,
-  author = {Chen, K. and Weng, Y. and Zhang, Y. and Wang, B. and Li, Z.},
+  author = {Chen, K. and Weng, Y. and Zhang, Y. and others},
   title = {An Interpretable Whole-Stream Video Based Deep Learning Framework for Surgical
            Skill Assessment of Basic Procedural Elements},
   journal = {International Journal of Surgery},
@@ -285,24 +275,21 @@ REFERENCES = r"""
 }
 
 @article{saeb2017need,
-  author = {Saeb, Sohrab and Lonini, Luca and Jayaraman, Arun and Mohr, David C. and Kording,
-            Konrad P.},
+  author = {Saeb, Sohrab and Lonini, Luca and Jayaraman, Arun and others},
   title = {The Need to Approximate the Use-Case in Clinical Machine Learning},
   journal = {GigaScience}, year = {2017}, volume = {6}, number = {5}, pages = {gix019},
   doi = {10.1093/gigascience/gix019}
 }
 
 @article{little2017using,
-  author = {Little, Max A. and Varoquaux, Ga{\"e}l and Saeb, Sohrab and Lonini, Luca and
-            Jayaraman, Arun and Mohr, David C. and Kording, Konrad P.},
+  author = {Little, Max A. and Varoquaux, Ga{\"e}l and Saeb, Sohrab and others},
   title = {Using and Understanding Cross-Validation Strategies},
   journal = {GigaScience}, year = {2017}, volume = {6}, number = {5},
   note = {UNRESOLVED: DOI not yet confirmed}
 }
 
 @article{chaibubneto2019detecting,
-  author = {Chaibub Neto, Elias and Perumal, Thanneer M. and Pratap, Abhishek and Bot, Brian M.
-            and Mangravite, Lara and Omberg, Larsson},
+  author = {Chaibub Neto, Elias and Perumal, Thanneer M. and Pratap, Abhishek and others},
   title = {Detecting the Impact of Subject Characteristics on Machine Learning-Based
            Diagnostic Applications},
   journal = {npj Digital Medicine}, year = {2019}, volume = {2}, pages = {99},
@@ -310,17 +297,14 @@ REFERENCES = r"""
 }
 
 @article{brookshire2024leakage,
-  author = {Brookshire, Geoffrey and Kasper, Jake and Blauch, Nicholas M. and Wu, Yunan Charles
-            and Glatt, Ryan and Merrill, David A. and Gerrol, Spencer and Yoder, Keith J. and
-            Quirk, Chris and Lucero, Colin},
+  author = {Brookshire, Geoffrey and Kasper, Jake and Blauch, Nicholas M. and others},
   title = {Data Leakage in Deep Learning Studies of Translational {EEG}},
   journal = {Frontiers in Neuroscience}, year = {2024}, volume = {18}, pages = {1373515},
   doi = {10.3389/fnins.2024.1373515}
 }
 
 @article{geirhos2020shortcut,
-  author = {Geirhos, Robert and Jacobsen, J{\"o}rn-Henrik and Michaelis, Claudio and Zemel,
-            Richard and Brendel, Wieland and Bethge, Matthias and Wichmann, Felix A.},
+  author = {Geirhos, Robert and Jacobsen, J{\"o}rn-Henrik and Michaelis, Claudio and others},
   title = {Shortcut Learning in Deep Neural Networks},
   journal = {Nature Machine Intelligence}, year = {2020}, volume = {2}, number = {11},
   pages = {665--673}, doi = {10.1038/s42256-020-00257-z}
@@ -334,7 +318,7 @@ REFERENCES = r"""
 }
 
 @article{ilgen2015checklists,
-  author = {Ilgen, Jonathan S. and Ma, Irene W. Y. and Hatala, Rose and Cook, David A.},
+  author = {Ilgen, Jonathan S. and Ma, Irene W. Y. and Hatala, Rose and others},
   title = {A Systematic Review of Validity Evidence for Checklists Versus Global Rating Scales
            in Simulation-Based Assessment},
   journal = {Medical Education}, year = {2015}, volume = {49}, number = {2}, pages = {161--173},
@@ -342,7 +326,7 @@ REFERENCES = r"""
 }
 
 @article{gawad2019interrater,
-  author = {Gawad, Nada and Fowler, Amanda and Mimeault, Richard and Raiche, Isabelle},
+  author = {Gawad, Nada and Fowler, Amanda and Mimeault, Richard and others},
   title = {The Inter-Rater Reliability of Technical Skills Assessment and Retention of Rater
            Training},
   journal = {Journal of Surgical Education}, year = {2019}, volume = {76}, number = {4},
@@ -350,23 +334,21 @@ REFERENCES = r"""
 }
 
 @article{martin1997osats,
-  author = {Martin, J. A. and Regehr, G. and Reznick, R. and MacRae, H. and Murnaghan, J. and
-            Hutchison, C. and Brown, M.},
+  author = {Martin, J. A. and Regehr, G. and Reznick, R. and others},
   title = {Objective Structured Assessment of Technical Skill ({OSATS}) for Surgical Residents},
   journal = {British Journal of Surgery}, year = {1997}, volume = {84}, number = {2},
   pages = {273--278}, doi = {10.1046/j.1365-2168.1997.02502.x}
 }
 
 @article{baghdadi2023force,
-  author = {Baghdadi, Amir and Guo, Eddie and Lama, Sanju and Singh, Rahul and Chow, Michael
-            and Sutherland, Garnette R.},
+  author = {Baghdadi, Amir and Guo, Eddie and Lama, Sanju and others},
   title = {Force Profile as Surgeon-Specific Signature},
   journal = {Annals of Surgery Open}, year = {2023}, volume = {4}, number = {3}, pages = {e326},
   doi = {10.1097/AS9.0000000000000326}
 }
 
 @article{xuan2026explainable,
-  author = {Xuan, W. and Rui, Z. and Mingxu, Y. and Azam, M. and Ahmad, N. and Sarwar, R.},
+  author = {Xuan, W. and Rui, Z. and Mingxu, Y. and others},
   title = {Explainable Machine Learning for Automated Robotic Surgical Skill Assessment
            Using Rich Kinematic Features},
   journal = {Journal of Robotic Surgery}, year = {2026},
@@ -374,7 +356,7 @@ REFERENCES = r"""
 }
 
 @article{constans2026markerless,
-  author = {Constans, N. and Mitrea, M. and Neumann, N. and Chakfe, N.},
+  author = {Constans, N. and Mitrea, M. and Neumann, N. and others},
   title = {Assessment of Open Surgery Suturing Skills via Markerless Hand Tracking: A
            Multistage Approach Using {3D} Hand Skeleton and Kinematic Metrics},
   journal = {International Journal of Computer Assisted Radiology and Surgery},
