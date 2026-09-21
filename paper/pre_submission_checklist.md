@@ -68,6 +68,33 @@ Each names what is currently unverified and what would close it.
   cannot be finalised until it arrives.
 - [ ] **Rotate the TypeSafe API key** used for data collection.
 
+## LaTeX and formatting (from the step 5 build)
+
+- [ ] **LENGTH: the build is 21 pages against an IJCARS target of roughly 12.** This is the
+  largest outstanding problem. The Springer class is more compact than the `article`
+  fallback, so the real figure will be lower, but almost certainly still over. Body prose is
+  about 8,300 words before references and captions. Agreed cut order: Methods first
+  (Sections 3.2 and 3.3 are the most compressible), then Discussion 5.4; Section 2.3 is
+  protected because it carries the novelty argument. **Confirm the exact limit for the
+  regular IJCARS article track** — the ~12 page / ~5,000 word figure came from IPCAI
+  special-issue guidance, not the regular track.
+- [ ] **Install the official document class.** Download Springer Nature's template (v3.1,
+  Dec 2024) from springernature.com/gp/authors/campaigns/latex-author-support, copy
+  `sn-jnl.cls` and the `.bst` files into `paper/ijcars/latex/`, change one `\documentclass`
+  line and the `\bibliographystyle`. Not vendored here: it is not on CTAN and the public
+  copies are unverifiable mirrors. Instructions in `paper/ijcars/latex/README.md`.
+- [ ] **Add author names, affiliations and the corresponding-author block.** `main.tex`
+  currently has an empty `\author{}`.
+- [ ] **Five bibliography entries print `UNRESOLVED` or `NOT PEER REVIEWED` notes** and will
+  appear that way in the compiled bibliography until completed: `gao2014jigsaws`, `zeal`,
+  `eliot2026forbes`, `little2017using`, and the three Jev evaluations. Left visible on
+  purpose rather than hidden.
+- [ ] **`microtype` omitted** because it is absent from this TeX installation. Cosmetic;
+  restore if the submission machine has it.
+- [ ] **Decide whether `paper/ijcars/latex/` should instead be `paper/latex/`.** It was
+  placed under the IJCARS directory to honour the request to keep the venue version
+  separate; the original instruction said `paper/latex/`.
+
 ## Reporting
 
 - [ ] Decide venue (IJCARS or a MICCAI-family workshop) once the Introduction and Abstract
