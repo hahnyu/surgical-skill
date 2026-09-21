@@ -5,16 +5,27 @@ Each names what is currently unverified and what would close it.
 
 ## Citations and novelty
 
-- [ ] **Systematic search backing the §2.3 negative claim.** The claim that no surgical
-  skill assessment study both attributes the protocol gap to identity leakage and
-  demonstrates it with a surgeon-identification test currently rests on targeted searches,
-  not a systematic pass. Run Scholar, PubMed and IEEE Xplore; record the search strings,
-  databases and dates; keep the record so the claim is defensible in review. Two
-  stress-test searches have already failed to break it, which is encouraging but is not
-  the same as a recorded protocol.
-- [ ] **Systematic search backing the §2.5 negative claim**, now narrowed to "no
-  calibration or selective-prediction study of a surgical *skill assessment* model built
-  from motion, kinematic or video data". SurgiQ is the known near-miss and is cited.
+- [x] **Systematic search backing the §2.3 negative claim — DONE, and it narrowed the
+  claim.** PubMed queried via E-utilities with five recorded query strings; all 32 hits of
+  the critical query screened. Protocol and results in `paper/systematic_search.md`, raw
+  responses in `results/searches/`. **The search found prior work the supplied literature
+  review had missed:** Baghdadi et al. (Ann Surg Open 2023, doi 10.1097/AS9.0000000000000326)
+  identify individual surgeons from intraoperative force data at 83.8% accuracy, framing
+  identifiability as a capability rather than a validity threat. Surgeon identification from
+  surgical signals is therefore *not* novel; §2.3 and the Introduction now say so and cite it,
+  and the claim is narrowed to the use of identifiability as a validity diagnostic tied to
+  the protocol gap.
+- [x] **Systematic search backing the §2.5 negative claim — DONE, claim stands.** Four
+  recorded queries. Two returned zero hits; the informative query (`"expected calibration
+  error" AND (surgical OR surgery)`) returned 21, all applying calibration to imaging,
+  diagnosis or prognosis rather than to skill assessment from motion data. The narrowed
+  wording is now supported by a recorded search.
+- [ ] **Remaining search limitation.** Google Scholar and IEEE Xplore could not be queried
+  programmatically and were not searched directly. IEEE Xplore matters because much
+  robotic-surgery methods work appears in ICRA, IROS and T-BME. A manual pass through both
+  before submission would strengthen the two negative claims; neither is described as
+  exhaustive in the text.
+
 - [x] **Verify every borrowed figure against its primary source — DONE for what is
   reachable; two remain.** All figures attributed to prior work originally came from a
   supplied literature review. Status as of 2026-09-20:

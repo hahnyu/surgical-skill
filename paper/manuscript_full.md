@@ -15,6 +15,11 @@ before submission.
 
 ---
 
+> **Venue-neutral full draft.** This is the complete, untrimmed manuscript, preserved as
+> the reference version. The IJCARS submission is a separate, shortened copy at
+> `paper/ijcars/manuscript.md`; edits made to fit that venue's length limit belong there,
+> not here.
+
 ## Abstract
 
 **Purpose** JIGSAWS sanctions two cross-validation protocols for surgical skill
@@ -38,8 +43,8 @@ regression on trial duration matched both models. Both paths were overconfident 
 0.755 against accuracy 0.379; 0.696 against 0.301), scoring worse than a constant forecast,
 and neither identified deferrable trials.
 
-**Conclusion** Accuracy reported under the permissive protocol substantially reflects
-surgeon recognition rather than skill measurement. With eight surgeons these are
+**Conclusion** Accuracy reported under the permissive protocol is consistent with surgeon
+recognition rather than skill measurement. With eight surgeons these are
 single-dataset demonstrations rather than established generalities. We recommend reporting
 held-out-surgeon results against an uninformative reference, with a subject-identifiability
 diagnostic.
@@ -84,8 +89,11 @@ closest to the account we pursue, describing its own gap as quantifying "the
 surgeon-specific component captured by video-level splits" — and stops there. Three
 different attributions, none of them measured, and a fourth study that names a mechanism
 without measuring it either. The test is inexpensive: train the same features to predict
-which surgeon performed the trial, and read off how much identity is recoverable. To our
-knowledge no surgical skill assessment study has run it. The gap has been treated as a
+which surgeon performed the trial, and read off how much identity is recoverable. Such
+classifiers exist — surgeons have been identified from intraoperative force profiles with
+high accuracy — but they have been built to enable per-surgeon feedback, not to ask whether
+a skill benchmark is measuring skill. To our knowledge the test has not been run as a
+validity check on a skill-assessment protocol. The gap has been treated as a
 limitation to engineer away rather than as a quantity to measure.
 
 Judging such a system also requires care about the target it is fitted to. The reference
@@ -219,10 +227,22 @@ repetition with accuracy between 0.83 and 0.93, against chance rates near 0.13. 
 performance gap is ambiguous between confounding and underfitting; recoverable identity at
 roughly seven times chance is not.
 
-To our knowledge, no surgical skill assessment study both attributes the protocol gap to
-surgeon-identity leakage and demonstrates it by classifying the surgeon from the features
-used for skill. We state this as the negative finding of a targeted search rather than as a
-guarantee.
+Surgeon identifiability itself is not a new observation. Working from intraoperative
+tool-tissue force data rather than benchmark kinematics, Baghdadi et al. [2023] identify
+individual surgeons with micro-average AUC 0.97 and 83.8% accuracy across 89 neurosurgical
+cases, concluding that each surgeon has a unique force profile recoverable by deep
+networks. They frame that finding as a capability: a route to bespoke per-surgeon feedback
+and to correlating outcomes with individual performance. It is not connected there to the
+validity of any skill-assessment protocol, and no performance gap is reported.
+
+Our claim is correspondingly narrow. We are not the first to identify surgeons from
+surgical signals; what we add is the use of that identifiability as a validity diagnostic,
+run on the same features, model and folds as the skill task, and tied to the protocol gap
+it explains. To our knowledge no study both attributes that gap to surgeon-identity leakage
+and demonstrates the leakage by classifying the surgeon from the features used for skill.
+This is the outcome of a recorded search of PubMed and general web sources
+(`paper/systematic_search.md`); Google Scholar and IEEE Xplore could not be queried
+programmatically, so the claim is bounded rather than exhaustive.
 
 ### 2.4 Reported performance, and the missing reference
 
