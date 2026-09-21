@@ -15,6 +15,39 @@ before submission.
 
 ---
 
+## Abstract
+
+**Purpose** JIGSAWS sanctions two cross-validation protocols for surgical skill
+assessment: one holds out a repetition while every surgeon remains in training, the other
+holds out a surgeon entirely. We ask what a model evaluated under the first measures, and
+whether the confidence such models report would support deferring uncertain trials to a
+human rater.
+
+**Methods** Two prediction paths were evaluated on identical information across 103 trials,
+8 surgeons and 3 tasks: 16 kinematic features with ridge and multinomial logistic
+regression, and a zero-shot commercial decision model given the same features rendered as
+text. Both protocols were run. Errors are reported against a feature-free reference
+predicting each held-out trial with its training-fold mean rating; intervals resample whole
+surgeons. Analysis rules were fixed in advance, and post-hoc additions are labelled.
+
+**Results** Changing only the protocol removed at least a third of skill-classification
+accuracy (paired gap 0.49-0.67, intervals excluding zero). A post-hoc diagnostic found the
+same features identified which of eight surgeons performed a held-out trial with accuracy
+0.83-0.93 against chance near 0.13, distinguishing identity confounding from underfitting.
+On unseen surgeons one task of three beat the reference, and there a single-feature
+regression on trial duration matched both models. Both paths were overconfident (confidence
+0.755 against accuracy 0.379; 0.696 against 0.301), scoring worse than a constant forecast,
+and neither identified deferrable trials.
+
+**Conclusion** Accuracy reported under the permissive protocol substantially reflects
+surgeon recognition rather than skill measurement. With eight surgeons these are
+single-dataset demonstrations rather than established generalities. We recommend reporting
+held-out-surgeon results against an uninformative reference, with a subject-identifiability
+diagnostic.
+
+**Keywords** Surgical skill assessment; JIGSAWS; identity confounding; cross-validation;
+calibration; selective prediction
+
 ## 1. Introduction
 
 Automated assessment of surgical technical skill is motivated by the prospect of scalable,
@@ -39,8 +72,11 @@ entangled with speaker identity. These are instances of shortcut learning [Geirh
 affecting 294 papers [Kapoor and Narayanan 2023]. We return to the methodological debate
 this literature provoked in §2.3.
 
-That performance falls when the held-out surgeon is genuinely unseen is not in dispute; it
-has been reported repeatedly on this benchmark. What has not settled is why. Three studies
+The benchmark itself ships two cross-validation protocols: one holds out a repetition while
+every surgeon remains in training, the other holds out a surgeon entirely. Both are
+sanctioned and both appear in this literature, so what follows is not a criticism of an
+informal practice. That performance falls under the second is not in dispute; it has been
+reported repeatedly. What has not settled is why. Three studies
 of JIGSAWS attribute the same gap to three different causes: limited generalisation,
 answered by a call for surgeon-invariant features; the quality of the dataset's
 representations and annotations; and an absence of subject-independent validation in
