@@ -1,0 +1,17 @@
+\begin{table}[htbp]
+\centering
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lllllllll}
+\toprule
+\textbf{task} & \textbf{LOSO accuracy} & \textbf{LOUO accuracy} & \textbf{LOSO - LOUO} & \textbf{majority class} & \textbf{LOSO kappa} & \textbf{LOUO kappa} & \textbf{surgeon ID} & \textbf{chance} \\
+\midrule
+Suturing & 0.92 [0.85, 0.97] & 0.44 [0.25, 0.63] & 0.49 [0.35, 0.62] & 0.487 & +0.77 & -0.19 & 0.87 [0.77, 0.97] & 0.125 \\
+Knot-Tying & 0.97 [0.92, 1.00] & 0.31 [0.08, 0.58] & 0.67 [0.41, 0.89] & 0.444 & +0.98 & +0.13 & 0.83 [0.67, 0.97] & 0.125 \\
+Needle-Passing & 0.93 [0.85, 1.00] & 0.39 [0.16, 0.69] & 0.54 [0.27, 0.71] & 0.393 & +0.80 & -0.46 & 0.93 [0.83, 1.00] & 0.143 \\
+\bottomrule
+\end{tabular}
+}
+\caption{The protocol gap, and surgeon identifiability. Three-way skill classification (novice / intermediate / expert). Brackets are 95\% intervals from resampling whole surgeons. The LOSO - LOUO column is bootstrapped paired on the same resampled surgeons. 'Surgeon ID' replaces the target with surgeon identity, leaving features, model and folds unchanged; it is a post-hoc diagnostic. Every LOUO interval spans its task's majority-class rate.}
+\label{tab:table2}
+\end{table}

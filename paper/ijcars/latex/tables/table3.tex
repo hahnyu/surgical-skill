@@ -1,0 +1,32 @@
+\begin{table}[htbp]
+\centering
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lllllll}
+\toprule
+\textbf{scheme} & \textbf{task} & \textbf{reference MAE} & \textbf{method} & \textbf{model MAE} & \textbf{reduction [95\%]} & \textbf{beats reference} \\
+\midrule
+LOUO & Suturing & 4.71 & 16 features + ridge & 4.56 & 0.15 [-1.04, 1.33] & no \\
+ &  &  & Jev, zero-shot & 4.77 & -0.05 [-1.05, 0.96] & no \\
+ &  &  & task time alone & 4.61 & 0.10 [-0.72, 0.83] & no \\
+LOUO & Knot-Tying & 5.10 & 16 features + ridge & 3.56 & 1.54 [0.65, 2.52] & \textbf{yes} \\
+ &  &  & Jev, zero-shot & 2.80 & 2.30 [1.14, 3.45] & \textbf{yes} \\
+ &  &  & task time alone & 3.22 & 1.88 [0.94, 2.89] & \textbf{yes} \\
+LOUO & Needle-Passing & 4.41 & 16 features + ridge & 4.91 & -0.50 [-1.21, -0.04] & no \\
+ &  &  & Jev, zero-shot & 4.65 & -0.24 [-0.79, 0.31] & no \\
+ &  &  & task time alone & 4.70 & -0.29 [-0.88, 0.11] & no \\
+LOSO & Suturing & 4.35 & 16 features + ridge & 3.20 & 1.15 [0.47, 1.92] & \textbf{yes} \\
+ &  &  & Jev, zero-shot & 4.02 & 0.33 [-0.70, 1.51] & no \\
+ &  &  & task time alone & 4.01 & 0.34 [-0.32, 1.01] & no \\
+LOSO & Knot-Tying & 4.66 & 16 features + ridge & 2.88 & 1.78 [1.00, 2.58] & \textbf{yes} \\
+ &  &  & Jev, zero-shot & 2.59 & 2.08 [1.07, 3.09] & \textbf{yes} \\
+ &  &  & task time alone & 2.84 & 1.82 [1.00, 2.68] & \textbf{yes} \\
+LOSO & Needle-Passing & 4.22 & 16 features + ridge & 3.79 & 0.43 [0.11, 0.76] & \textbf{yes} \\
+ &  &  & Jev, zero-shot & 4.27 & -0.05 [-0.51, 0.53] & no \\
+ &  &  & task time alone & 4.40 & -0.18 [-0.48, 0.15] & no \\
+\bottomrule
+\end{tabular}
+}
+\caption{GRS error against the feature-free reference. The reference predicts each held-out trial with the mean GRS of its own training fold. A positive reduction means lower error than that reference; 'beats reference' requires the lower bound to exceed zero, a rule fixed before any interval was computed. Jev's ordinal score is placed on the GRS scale by a line fitted within each training fold.}
+\label{tab:table3}
+\end{table}

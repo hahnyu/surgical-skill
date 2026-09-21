@@ -185,14 +185,14 @@ its best baselines; having ruled out model-side causes through an extensive arch
 and hyperparameter search, it attributes the failure to the annotations, which it reports
 "lack a consistent ordering with respect to the visual features that encode actual skill
 differences".
-A recent explainable-machine-learning study using rich kinematic features [Journal of
-Robotic Surgery, 2026] criticises prior JIGSAWS work for lacking subject-independent
+A recent explainable-machine-learning study using rich kinematic features [Xuan et al.
+2026] criticises prior JIGSAWS work for lacking subject-independent
 validation — the same complaint, again without a direct test. Lefor et al. [2020] earlier
 flagged the dataset's subject imbalance and an inverse correlation among subjects as a
 threat to generalisation, without quantifying either.
 
-Closest to our own framing is a markerless hand-tracking study of open-surgery suturing
-[2026], which finds accuracy falling to 52.3% under leave-one-subject-out and states that
+Closest to our own framing is the markerless hand-tracking study of open-surgery suturing
+by Constans et al. [2026], which finds accuracy falling to 52.3% under leave-one-subject-out and states that
 this gap "quantifies the surgeon-specific component captured by video-level splits". We
 should be plain about how little separates that sentence from our thesis: they articulate
 the same interpretation of the same kind of gap, and had they run a subject-identification
@@ -276,7 +276,7 @@ Not Autonomy", 2026].
 ### 2.6 Zero-shot and text-based scoring
 
 Foundation models have reached this benchmark, but not in the role we examine. The nearest
-work, ZEAL, uses zero-shot video segmentation to produce features for a *trained* LSTM, so
+work, ZEAL [ZEAL 2024], uses zero-shot video segmentation to produce features for a *trained* LSTM, so
 the learning still happens downstream; that is a different mechanism from a decision model
 scoring a rubric with no training examples at all. The model we evaluate, Jev, is marketed
 on calibration — its training method is branded Reinforcement Learning for Calibrated

@@ -10,3 +10,12 @@ results/feature_grs_spearman.csv
 results/predictions/
 results/headline_table.csv
 results/jev_scores.csv
+paper/ijcars/latex/*.aux
+paper/ijcars/latex/*.bbl
+paper/ijcars/latex/*.blg
+paper/ijcars/latex/*.fdb_latexmk
+paper/ijcars/latex/*.fls
+paper/ijcars/latex/*.log
+paper/ijcars/latex/*.out
+paper/ijcars/latex/main.pdf
+paper/ijcars/latex/figures/
